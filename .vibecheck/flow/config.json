@@ -1,0 +1,13 @@
+{
+  "version": "1.0.0",
+  "projectName": "arudev",
+  "userName": "developer",
+  "skillLevel": "intermediate",
+  "outputFolder": ".vibecheck/flow",
+  "planningArtifacts": ".vibecheck\\flow\\planning-artifacts",
+  "implementationArtifacts": ".vibecheck\\flow\\implementation-artifacts",
+  "installedAt": "2026-06-22T05:18:16.595Z",
+  "ide": [
+    "vscode"
+  ]
+}

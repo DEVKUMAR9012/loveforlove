@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Environment variables — NEVER push these
+.env
+.env.local
+.env.production
+**/.env
+
+# Uploaded files (stored in Cloudinary, not needed locally)
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# Build output
+dist/
+build/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/

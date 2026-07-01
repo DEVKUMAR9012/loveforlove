@@ -1,0 +1,52 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ─── Helper Functions ────────────────────────────────────────────────────
+    
+    // Check if user is signed in
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Check if user is part of the couple
+    // Note: We use get() to look up the couple document and verify ownership
+    function isParticipant(coupleId) {
+      return isAuthenticated() && (
+        request.auth.uid == get(/databases/$(database)/documents/couples/$(coupleId)).data.partner1Id ||
+        request.auth.uid == get(/databases/$(database)/documents/couples/$(coupleId)).data.partner2Id
+      );
+    }
+
+    // ─── Security Rules ──────────────────────────────────────────────────────
+    
+    // 1. Users Collection
+    // Users can only read and write their own profile document
+    match /users/{userId} {
+      allow read, write: if isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // 2. Invites Collection (For pairing)
+    // Anyone authenticated can read an invite, but only the creator can delete it
+    match /invites/{inviteCode} {
+      allow read, create: if isAuthenticated();
+      allow delete: if isAuthenticated() && request.auth.uid == resource.data.creatorId;
+    }
+
+    // 3. Couples Collection
+    match /couples/{coupleId} {
+      // Any authenticated user can create a couple (when pairing)
+      allow create: if isAuthenticated();
+      
+      // Only the two partners can read or update the couple data
+      allow read, update, delete: if isParticipant(coupleId);
+
+      // 4. Feature Subcollections (Timeline, Gallery, Letters, etc.)
+      // Applies the same strict partner-only access to all nested data
+      match /{subcollection}/{docId} {
+        allow read, write: if isParticipant(coupleId);
+      }
+    }
+  }
+}
