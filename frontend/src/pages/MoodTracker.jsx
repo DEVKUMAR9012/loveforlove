@@ -51,10 +51,12 @@ function MoodTracker() {
 
   // ── Fetch ──────────────────────────────────────────────────────────────
 
-  const fetchStatus = useCallback(async () => {
+  // signal is passed in so AbortController can cancel in-flight fetches on unmount
+  const fetchStatus = useCallback(async (signal) => {
     try {
       const res = await fetch(`${API_BASE}/api/mood/status`, {
         headers: { Authorization: `Bearer ${token()}` },
+        signal,
       });
       if (!res.ok) throw new Error(`Status ${res.status}`);
       const data = await res.json();
@@ -64,28 +66,34 @@ function MoodTracker() {
       setPartnerMoodAt(data.partner?.updatedAt || null);
       setError(null);
     } catch (err) {
+      if (err.name === 'AbortError') return; // unmounted — silently ignore
       console.error('Failed to fetch mood status', err);
       setError("Couldn't reach the server. Your last mood is still shown below.");
     }
   }, [API_BASE]);
 
-  const fetchHistory = useCallback(async () => {
+  const fetchHistory = useCallback(async (signal) => {
     try {
       const res = await fetch(`${API_BASE}/api/mood/history?days=${HEATMAP_DAYS}`, {
         headers: { Authorization: `Bearer ${token()}` },
+        signal,
       });
       if (!res.ok) throw new Error(`History ${res.status}`);
       const data = await res.json();
       setHistory(data.days || []);
       setStreak(data.streak ?? 0);
     } catch (err) {
+      if (err.name === 'AbortError') return; // unmounted — silently ignore
       console.error('Failed to fetch mood history', err);
     }
   }, [API_BASE]);
 
   useEffect(() => {
-    fetchStatus();
-    fetchHistory();
+    const controller = new AbortController();
+    fetchStatus(controller.signal);
+    fetchHistory(controller.signal);
+    // Cleanup: abort both fetches if user navigates away before they finish
+    return () => controller.abort();
   }, [fetchStatus, fetchHistory]);
 
   // ── Actions ────────────────────────────────────────────────────────────
@@ -255,7 +263,17 @@ function MoodTracker() {
           <p className="text-gray-400 text-sm">No history yet — log a mood for a few days to see it here.</p>
         ) : (
           <div className="overflow-x-auto">
-            <div className="flex flex-wrap gap-1.5">
+            {/* 7-column grid = one column per day of week, GitHub-style.
+                Squares never randomly wrap — they align left-to-right in
+                consistent week rows regardless of screen width. */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(7, 1.25rem)',
+                gap: '0.375rem',
+                minWidth: 'max-content',
+              }}
+            >
               {history.map((day) => {
                 const moodObj = getMood(day.mood);
                 return (
