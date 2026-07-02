@@ -27,6 +27,15 @@ const userSchema = new mongoose.Schema({
     ref: 'User',
     default: null,
   },
+  // Refresh token store — one hashed token per active device/session.
+  // On logout we remove that specific token (not all).
+  // On rotation we swap old → new.
+  // select: false means it never leaks in API responses.
+  refreshTokens: {
+    type: [String],
+    default: [],
+    select: false,
+  },
 }, { timestamps: true });
 
 module.exports = mongoose.model('User', userSchema);

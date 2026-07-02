@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Layout from './components/layout/Layout';
@@ -10,26 +11,40 @@ import DailyPrompts from './pages/DailyPrompts';
 import VoiceNotes from './pages/VoiceNotes';
 import Messages from './pages/Messages';
 
+// ── Thin page wrapper ─────────────────────────────────────────────────────
+// Each route gets its own ErrorBoundary so one broken page never
+// white-screens the whole app. The boundary resets on navigation because
+// each route mounts a fresh instance.
+const Guarded = ({ children }) => (
+  <ErrorBoundary>{children}</ErrorBoundary>
+);
+
 function App() {
   return (
-    <AuthProvider>
-      <Router>
-        <Routes>
-          <Route path="/login" element={<Login />} />
+    // Top-level boundary catches AuthProvider / Router crashes
+    <ErrorBoundary>
+      <AuthProvider>
+        <Router>
+          <Routes>
+            <Route
+              path="/login"
+              element={<Guarded><Login /></Guarded>}
+            />
 
-          {/* Protected Routes wrapped in Layout */}
-          <Route element={<Layout />}>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/gallery" element={<MediaGallery />} />
-            <Route path="/calendar" element={<SharedCalendar />} />
-            <Route path="/mood" element={<MoodTracker />} />
-            <Route path="/prompts" element={<DailyPrompts />} />
-            <Route path="/voice" element={<VoiceNotes />} />
-            <Route path="/messages" element={<Messages />} />
-          </Route>
-        </Routes>
-      </Router>
-    </AuthProvider>
+            {/* Protected Routes wrapped in Layout */}
+            <Route element={<Layout />}>
+              <Route path="/"         element={<Guarded><Dashboard /></Guarded>} />
+              <Route path="/gallery"  element={<Guarded><MediaGallery /></Guarded>} />
+              <Route path="/calendar" element={<Guarded><SharedCalendar /></Guarded>} />
+              <Route path="/mood"     element={<Guarded><MoodTracker /></Guarded>} />
+              <Route path="/prompts"  element={<Guarded><DailyPrompts /></Guarded>} />
+              <Route path="/voice"    element={<Guarded><VoiceNotes /></Guarded>} />
+              <Route path="/messages" element={<Guarded><Messages /></Guarded>} />
+            </Route>
+          </Routes>
+        </Router>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }
 

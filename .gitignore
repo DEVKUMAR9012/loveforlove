@@ -6,6 +6,7 @@ node_modules/
 .env
 .env.local
 .env.production
+.env.staging
 **/.env
 
 # Uploaded files (stored in Cloudinary, not needed locally)

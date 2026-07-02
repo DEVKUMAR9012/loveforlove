@@ -142,33 +142,45 @@ function MediaGallery() {
   const closeLightbox = () => setActiveImage(null);
 
   const saveCaption = async () => {
-    if (!activeImage) return;
+    if (!activeImage || activeImage.caption === editingCaption) return;
+
+    const targetId        = activeImage.id;       // snapshot — never use activeImage.id after await
+    const previousCaption = activeImage.caption;
+    const optimisticCaption = editingCaption;
+
+    // Optimistic: update UI instantly before server responds
     setCaptionSaving(true);
+    setImages((prev) =>
+      prev.map((img) => (img.id === targetId ? { ...img, caption: optimisticCaption } : img))
+    );
+    setActiveImage((prev) =>
+      prev && prev.id === targetId ? { ...prev, caption: optimisticCaption } : prev
+    );
+
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`${API_BASE}/api/memories/${activeImage.id}/caption`, {
+      const res = await fetch(`${API_BASE}/api/memories/${targetId}/caption`, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ caption: editingCaption }),
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ caption: optimisticCaption }),
       });
-      if (res.ok) {
-        // Update caption in the images list so it shows immediately in gallery
-        setImages((prev) =>
-          prev.map((img) =>
-            img.id === activeImage.id ? { ...img, caption: editingCaption } : img
-          )
-        );
-        setActiveImage((prev) => ({ ...prev, caption: editingCaption }));
-        setCaptionSaved(true);
-        setTimeout(() => setCaptionSaved(false), 2000);
-      }
+      if (!res.ok) throw new Error('Server failed');
+      setCaptionSaved(true);
+      setTimeout(() => setCaptionSaved(false), 2000);
     } catch (e) {
-      console.error('Caption save failed', e);
+      // Rollback if server failed
+      setImages((prev) =>
+        prev.map((img) => (img.id === targetId ? { ...img, caption: previousCaption } : img))
+      );
+      setActiveImage((prev) =>
+        prev && prev.id === targetId ? { ...prev, caption: previousCaption } : prev
+      );
+      setEditingCaption(previousCaption);
+      setLoadError("Couldn't save caption. Reverted.");
+      setTimeout(() => setLoadError(null), 4000);
+    } finally {
+      setCaptionSaving(false);
     }
-    setCaptionSaving(false);
   };
 
   const formatDate = (date) =>
@@ -828,110 +840,125 @@ function MediaGallery() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 flex items-center justify-center p-6"
+              className="fixed inset-0 z-50 overflow-y-auto"
               style={{ background: 'rgba(7, 6, 11, 0.92)' }}
               onClick={closeLightbox}
             >
-              <button
-                onClick={closeLightbox}
-                aria-label="Close"
-                className="absolute top-6 right-6 p-2 rounded-full"
-                style={{ color: '#F4ECE3', background: 'rgba(255,255,255,0.08)' }}
-              >
-                <HiOutlineX className="text-2xl" />
-              </button>
+              <div className="min-h-full flex items-center justify-center p-4 sm:p-6">
 
-              <div
-                className="relative w-full max-w-md"
-                style={{ perspective: '1600px' }}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <motion.div
-                  className="relative w-full"
-                  style={{ transformStyle: 'preserve-3d' }}
-                  animate={{ rotateY: isFlipped ? 180 : 0 }}
-                  transition={{ duration: 0.5 }}
+                {/* Fixed close button — always in corner regardless of scroll */}
+                <button
+                  onClick={closeLightbox}
+                  aria-label="Close"
+                  className="fixed top-4 right-4 sm:top-6 sm:right-6 p-2 rounded-full z-50 transition-colors hover:bg-white/20"
+                  style={{ color: '#F4ECE3', background: 'rgba(255,255,255,0.08)' }}
                 >
-                  {/* Front: the photo */}
-                  <div
-                    className="p-4 rounded-sm"
-                    style={{ background: '#F4ECE3', backfaceVisibility: 'hidden' }}
+                  <HiOutlineX className="text-2xl" />
+                </button>
+
+                {/* Spring pop-up — iOS feel */}
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.85, y: 20 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                  transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                  className="relative w-full max-w-md mx-auto"
+                  style={{ perspective: '1600px' }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <motion.div
+                    className="relative w-full"
+                    style={{ transformStyle: 'preserve-3d' }}
+                    animate={{ rotateY: isFlipped ? 180 : 0 }}
+                    transition={{ duration: 0.6, type: 'spring', bounce: 0.2 }}
                   >
-                    <img
-                      src={activeImage.src}
-                      alt={activeImage.caption || 'A keepsake memory'}
-                      className="w-full h-auto rounded-[2px]"
-                    />
-                    <button
-                      onClick={() => setIsFlipped(true)}
-                      className="w-full mt-3 py-2 text-sm rounded-md"
-                      style={{ color: '#6B5B73', fontFamily: 'Inter, sans-serif', background: 'transparent' }}
+                    {/* Front: the photo */}
+                    <div
+                      className="p-3 sm:p-4 rounded-sm flex flex-col"
+                      style={{
+                        background: '#F4ECE3',
+                        backfaceVisibility: 'hidden',
+                        boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)',
+                      }}
                     >
-                      Turn over →
-                    </button>
-                  </div>
-
-                  {/* Back: editable caption + date, like the back of a printed photo */}
-                  <div
-                    className="absolute inset-0 p-8 rounded-sm flex flex-col justify-between"
-                    style={{
-                      background: '#EDE3D3',
-                      backfaceVisibility: 'hidden',
-                      transform: 'rotateY(180deg)',
-                    }}
-                  >
-                    <div className="flex flex-col flex-1">
-                      <p
-                        className="text-xs uppercase tracking-[0.2em] mb-4"
-                        style={{ color: '#A89678', fontFamily: 'Inter, sans-serif' }}
-                      >
-                        {formatDate(activeImage.date)}
-                      </p>
-
-                      {/* Editable caption textarea */}
-                      <textarea
-                        value={editingCaption}
-                        onChange={(e) => { setEditingCaption(e.target.value); setCaptionSaved(false); }}
-                        placeholder="Write something about this memory..."
-                        rows={4}
-                        className="flex-1 w-full resize-none bg-transparent focus:outline-none"
-                        style={{
-                          color: '#3A332E',
-                          fontFamily: "'Fraunces', serif",
-                          fontStyle: 'italic',
-                          fontSize: '1.1rem',
-                          lineHeight: '1.7',
-                          borderBottom: '1px dashed #C9A876',
-                          paddingBottom: '8px',
-                        }}
+                      {/* maxHeight stops tall images from hiding the button below */}
+                      <img
+                        src={activeImage.srcFull || activeImage.src}
+                        alt={activeImage.caption || 'A keepsake memory'}
+                        className="w-full object-contain rounded-[2px]"
+                        style={{ maxHeight: 'calc(100vh - 12rem)' }}
                       />
-
-                      {/* Save button */}
+                      {/* shrink-0 prevents this from being squished by a tall image */}
                       <button
-                        onClick={saveCaption}
-                        disabled={captionSaving}
-                        className="mt-4 self-end px-5 py-2 rounded-lg text-sm font-medium transition-all"
-                        style={{
-                          background: captionSaved ? '#7DAF82' : '#C9A876',
-                          color: '#1A1622',
-                          fontFamily: 'Inter, sans-serif',
-                          opacity: captionSaving ? 0.6 : 1,
-                          cursor: captionSaving ? 'not-allowed' : 'pointer',
-                        }}
+                        onClick={() => setIsFlipped(true)}
+                        className="w-full mt-3 py-2 text-sm rounded-md shrink-0 font-medium transition-colors hover:bg-black/5"
+                        style={{ color: '#6B5B73', fontFamily: 'Inter, sans-serif' }}
                       >
-                        {captionSaving ? 'Saving...' : captionSaved ? '✓ Saved!' : 'Save caption'}
+                        Turn over →
                       </button>
                     </div>
 
-                    <button
-                      onClick={() => setIsFlipped(false)}
-                      className="self-start text-sm mt-4"
-                      style={{ color: '#8A7960', fontFamily: 'Inter, sans-serif' }}
+                    {/* Back: editable caption + date */}
+                    <div
+                      className="absolute inset-0 p-6 sm:p-8 rounded-sm flex flex-col justify-between"
+                      style={{
+                        background: '#EDE3D3',
+                        backfaceVisibility: 'hidden',
+                        transform: 'rotateY(180deg)',
+                        boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)',
+                      }}
                     >
-                      ← Back to photo
-                    </button>
-                  </div>
+                      <div className="flex flex-col flex-1 h-full">
+                        <p
+                          className="text-xs uppercase tracking-[0.2em] mb-4"
+                          style={{ color: '#A89678', fontFamily: 'Inter, sans-serif' }}
+                        >
+                          {formatDate(activeImage.date)}
+                        </p>
 
+                        <textarea
+                          value={editingCaption}
+                          onChange={(e) => { setEditingCaption(e.target.value); setCaptionSaved(false); }}
+                          placeholder="Write something about this memory..."
+                          rows={4}
+                          className="flex-1 w-full resize-none bg-transparent focus:outline-none"
+                          style={{
+                            color: '#3A332E',
+                            fontFamily: "'Fraunces', serif",
+                            fontStyle: 'italic',
+                            fontSize: '1.1rem',
+                            lineHeight: '1.7',
+                            borderBottom: '1px dashed #C9A876',
+                            paddingBottom: '8px',
+                          }}
+                        />
+
+                        <button
+                          onClick={saveCaption}
+                          disabled={captionSaving}
+                          className="mt-4 self-end px-5 py-2 rounded-lg text-sm font-medium transition-all"
+                          style={{
+                            background: captionSaved ? '#7DAF82' : '#C9A876',
+                            color: '#1A1622',
+                            fontFamily: 'Inter, sans-serif',
+                            opacity: captionSaving ? 0.6 : 1,
+                            cursor: captionSaving ? 'not-allowed' : 'pointer',
+                          }}
+                        >
+                          {captionSaving ? 'Saving...' : captionSaved ? '✓ Saved!' : 'Save caption'}
+                        </button>
+                      </div>
+
+                      <button
+                        onClick={() => setIsFlipped(false)}
+                        className="self-start text-sm mt-4 font-medium transition-colors hover:text-black"
+                        style={{ color: '#8A7960', fontFamily: 'Inter, sans-serif' }}
+                      >
+                        ← Back to photo
+                      </button>
+                    </div>
+
+                  </motion.div>
                 </motion.div>
               </div>
             </motion.div>
