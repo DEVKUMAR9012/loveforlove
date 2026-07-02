@@ -20,14 +20,26 @@ app.use(express.json({ limit: '10mb' }));
 app.use(cookieParser()); // needed to read HttpOnly refresh-token cookie
 
 // ── CORS ──────────────────────────────────────────────────────────────────
-const allowedOrigins = process.env.ALLOWED_ORIGIN
-  ? process.env.ALLOWED_ORIGIN.split(',').map((o) => o.trim())
-  : ['http://localhost:5173', 'http://localhost:3000'];
+const allowedOrigins = [
+  'http://localhost:5173', 
+  'http://localhost:3000',
+  'https://loveforlove.vercel.app'
+];
+
+if (process.env.ALLOWED_ORIGIN) {
+  allowedOrigins.push(...process.env.ALLOWED_ORIGIN.split(',').map((o) => o.trim()));
+}
 
 app.use(cors({
   origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
+    
+    // Check if origin is in allowed origins list
     if (allowedOrigins.includes(origin)) return callback(null, true);
+    
+    // In development/hobby mode, you might want to just allow it or log it
+    console.log("Blocked CORS request from origin:", origin);
     callback(new Error(`CORS: origin ${origin} not allowed`));
   },
   credentials: true, // required for cookies to be sent cross-origin
