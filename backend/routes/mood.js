@@ -58,7 +58,14 @@ router.get('/history', protect, async (req, res) => {
       }
     }
 
-    res.json({ days: daysList, streak });
+    // Prepare detailed timeline (newest first)
+    const timeline = [...moods].reverse().map(m => ({
+      id: m._id,
+      mood: m.mood,
+      time: m.createdAt
+    }));
+
+    res.json({ days: daysList, streak, timeline });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

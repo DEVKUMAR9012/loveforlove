@@ -43,6 +43,7 @@ function MoodTracker() {
   const [partnerMood, setPartnerMood]   = useState(null);
   const [partnerMoodAt, setPartnerMoodAt] = useState(null);
   const [history, setHistory]       = useState([]);
+  const [timeline, setTimeline]     = useState([]);
   const [streak, setStreak]         = useState(0);
   const [isSaving, setIsSaving]     = useState(false);
   const [error, setError]           = useState(null);
@@ -81,6 +82,7 @@ function MoodTracker() {
       if (!res.ok) throw new Error(`History ${res.status}`);
       const data = await res.json();
       setHistory(data.days || []);
+      setTimeline(data.timeline || []);
       setStreak(data.streak ?? 0);
     } catch (err) {
       if (err.name === 'AbortError') return; // unmounted — silently ignore
@@ -302,6 +304,33 @@ function MoodTracker() {
           </div>
         </div>
       </div>
+
+      {/* Mood detailed timeline */}
+      {timeline.length > 0 && (
+        <div className="glass p-8 rounded-[2rem] shadow-sm mb-10">
+          <h2 className="text-2xl font-bold text-gray-800 mb-6">Your Timeline</h2>
+          <div className="flex flex-col gap-4">
+            {timeline.map((entry) => {
+              const m = getMood(entry.mood);
+              if (!m) return null;
+              return (
+                <div key={entry.id} className="flex items-center gap-4 p-4 rounded-2xl bg-white/50 shadow-sm border border-white/60">
+                  <span className="text-3xl">{m.emoji}</span>
+                  <div>
+                    <p className="font-semibold text-gray-800" style={{ color: m.color }}>{m.label}</p>
+                    <p className="text-xs text-gray-500">
+                      {new Date(entry.time).toLocaleString('en-US', {
+                        weekday: 'short', month: 'short', day: 'numeric',
+                        hour: 'numeric', minute: '2-digit', hour12: true
+                      })}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </motion.div>
   );
 }
