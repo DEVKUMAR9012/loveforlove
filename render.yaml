@@ -1,0 +1,40 @@
+# render.yaml — Render.com Infrastructure-as-Code
+# Render reads this file automatically when you connect your GitHub repo.
+# Docs: https://render.com/docs/blueprint-spec
+
+services:
+  - type: web
+    name: loveforlove-backend
+    runtime: node
+    region: singapore          # closest to India — change to oregon/frankfurt if needed
+    plan: free                 # upgrade to starter ($7/mo) for no sleep
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: node server.js
+    healthCheckPath: /health   # Render pings this to confirm service is up
+
+    # Auto-deploy whenever 'main' branch is pushed
+    branch: main
+    autoDeploy: true
+
+    envVars:
+      # Safe to put NODE_ENV here — not a secret
+      - key: NODE_ENV
+        value: production
+
+      # These are SECRET — set them manually in Render dashboard
+      # Dashboard → Your Service → Environment → Add Environment Variable
+      - key: MONGODB_URI
+        sync: false            # sync: false = Render won't auto-fill, you must set manually
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_REFRESH_SECRET
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: ALLOWED_ORIGIN
+        sync: false            # Set this to your Vercel URL after deploying frontend
