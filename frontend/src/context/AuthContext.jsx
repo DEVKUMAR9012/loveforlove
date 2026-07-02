@@ -95,7 +95,14 @@ export function AuthProvider({ children }) {
     if (!res.ok) throw new Error(data.message || 'Login failed');
 
     localStorage.setItem('token', data.token);
-    setUser({ _id: data._id, name: data.name, email: data.email, avatarUrl: data.avatarUrl });
+    setUser({ 
+      _id: data._id, 
+      name: data.name, 
+      email: data.email, 
+      avatarUrl: data.avatarUrl,
+      role: data.role,
+      relationshipStartDate: data.relationshipStartDate
+    });
     scheduleRefresh();
   };
 
@@ -115,7 +122,14 @@ export function AuthProvider({ children }) {
     }
 
     localStorage.setItem('token', data.token);
-    setUser({ _id: data._id, name: data.name, email: data.email, avatarUrl: data.avatarUrl });
+    setUser({ 
+      _id: data._id, 
+      name: data.name, 
+      email: data.email, 
+      avatarUrl: data.avatarUrl,
+      role: data.role,
+      relationshipStartDate: data.relationshipStartDate
+    });
     scheduleRefresh();
   };
 
@@ -135,8 +149,12 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
+  const updateRelationshipDate = (date) => {
+    setUser(prev => ({ ...prev, relationshipStartDate: date }));
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, backendUrl: API }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, updateRelationshipDate, backendUrl: API }}>
       {children}
     </AuthContext.Provider>
   );

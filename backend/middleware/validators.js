@@ -74,6 +74,39 @@ const moodRules = [
     .withMessage('Invalid mood value'),
 ];
 
+const calendarEventRules = [
+  body('title')
+    .trim()
+    .notEmpty().withMessage('Title is required')
+    .isLength({ max: 80 }).withMessage('Title must be 80 characters or less'),
+  body('date')
+    .notEmpty().withMessage('Date is required')
+    .isISO8601().withMessage('Date must be a valid ISO date'),
+  body('category')
+    .notEmpty().withMessage('Category is required')
+    .isIn(['anniversary', 'date-night', 'birthday', 'reminder', 'trip'])
+    .withMessage('Invalid category'),
+  body('notes')
+    .optional()
+    .isString().withMessage('Notes must be a string')
+    .isLength({ max: 500 }).withMessage('Notes must be 500 characters or less')
+    .trim(),
+  body('recurrence')
+    .optional()
+    .isIn(['none', 'yearly']).withMessage('Invalid recurrence'),
+  body('reminder')
+    .optional()
+    .isIn(['none', 'same-day', 'one-day-before', 'both']).withMessage('Invalid reminder'),
+  body('photoUrl')
+    .optional({ checkFalsy: true })
+    .isURL({ protocols: ['http', 'https'], require_protocol: true })
+    .withMessage('Photo URL must be a valid http(s) URL')
+    .trim(),
+  body('photoMemoryId')
+    .optional({ checkFalsy: true })
+    .isMongoId().withMessage('Photo memory must be a valid memory id'),
+];
+
 module.exports = {
   validate,
   registerRules,
@@ -82,4 +115,5 @@ module.exports = {
   captionRules,
   messageRules,
   moodRules,
+  calendarEventRules,
 };

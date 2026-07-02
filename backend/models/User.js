@@ -27,6 +27,15 @@ const userSchema = new mongoose.Schema({
     ref: 'User',
     default: null,
   },
+  role: {
+    type: String,
+    enum: ['user', 'admin'],
+    default: 'user',
+  },
+  relationshipStartDate: {
+    type: Date,
+    default: null,
+  },
   // Refresh token store — one hashed token per active device/session.
   // On logout we remove that specific token (not all).
   // On rotation we swap old → new.

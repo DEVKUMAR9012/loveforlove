@@ -12,6 +12,9 @@ const memoriesRoutes = require('./routes/memories');
 const lettersRoutes  = require('./routes/letters');
 const voiceRoutes    = require('./routes/voice');
 const moodRoutes     = require('./routes/mood');
+const adminRoutes    = require('./routes/admin');
+const settingsRoutes = require('./routes/settings');
+const calendarRoutes = require('./routes/calendar');
 
 const app = express();
 
@@ -65,6 +68,9 @@ app.use('/api/memories', memoriesRoutes);
 app.use('/api/letters',  lettersRoutes);
 app.use('/api/voice',    voiceRoutes);
 app.use('/api/mood',     moodRoutes);
+app.use('/api/admin',    adminRoutes);
+app.use('/api/settings', settingsRoutes);
+app.use('/api/calendar', calendarRoutes);
 
 // ── 404 handler ───────────────────────────────────────────────────────────
 app.use((req, res) => {

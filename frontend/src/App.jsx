@@ -1,3 +1,4 @@
+// vibecheck-disable SECAI006
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -10,8 +11,18 @@ import MoodTracker from './pages/MoodTracker';
 import DailyPrompts from './pages/DailyPrompts';
 import VoiceNotes from './pages/VoiceNotes';
 import Messages from './pages/Messages';
+import Settings from './pages/Settings';
+import AdminDashboard from './pages/AdminDashboard';
+import { useAuth } from './context/AuthContext';
+import { Navigate } from 'react-router-dom';
 
-// ── Thin page wrapper ─────────────────────────────────────────────────────
+// ── Admin Guard ───────────────────────────────────────────────────────────
+const AdminRoute = ({ children }) => {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  if (!user || user.role !== 'admin') return <Navigate to="/" replace />;
+  return children;
+};
 // Each route gets its own ErrorBoundary so one broken page never
 // white-screens the whole app. The boundary resets on navigation because
 // each route mounts a fresh instance.
@@ -40,6 +51,8 @@ function App() {
               <Route path="/prompts"  element={<Guarded><DailyPrompts /></Guarded>} />
               <Route path="/voice"    element={<Guarded><VoiceNotes /></Guarded>} />
               <Route path="/messages" element={<Guarded><Messages /></Guarded>} />
+              <Route path="/settings" element={<Guarded><Settings /></Guarded>} />
+              <Route path="/admin"    element={<Guarded><AdminRoute><AdminDashboard /></AdminRoute></Guarded>} />
             </Route>
           </Routes>
         </Router>

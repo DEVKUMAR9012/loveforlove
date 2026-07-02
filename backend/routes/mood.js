@@ -2,6 +2,10 @@ const express = require('express');
 const router = express.Router();
 const Mood = require('../models/Mood');
 const { protect } = require('../middleware/authMiddleware');
+const { apiLimiter } = require('../middleware/rateLimiters');
+
+// Apply rate limiting
+router.use(apiLimiter);
 
 // GET /api/mood/status — current user's latest mood + partner's latest mood
 router.get('/status', protect, async (req, res) => {

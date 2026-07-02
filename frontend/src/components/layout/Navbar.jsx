@@ -7,7 +7,9 @@ import {
   HiOutlineHeart, 
   HiOutlineChatAlt2,
   HiOutlineMicrophone,
-  HiOutlineMail
+  HiOutlineMail,
+  HiOutlineCog,
+  HiOutlineShieldCheck
 } from 'react-icons/hi';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -20,6 +22,7 @@ const navItems = [
   { path: '/prompts', name: 'Prompts', icon: HiOutlineChatAlt2 },
   { path: '/messages', name: 'Messages', icon: HiOutlineMail },
   { path: '/voice', name: 'Voice', icon: HiOutlineMicrophone },
+  { path: '/settings', name: 'Settings', icon: HiOutlineCog },
 ];
 
 function Navbar() {
@@ -62,6 +65,27 @@ function Navbar() {
             )}
           </NavLink>
         ))}
+        {user?.role === 'admin' && (
+          <NavLink
+            to="/admin"
+            className={({ isActive }) =>
+              `flex flex-col md:flex-row items-center gap-2 p-2 md:p-4 rounded-2xl transition-all duration-300 w-full ${
+                isActive 
+                  ? 'bg-gradient-to-r from-purple-400 to-purple-500 text-white shadow-md' 
+                  : 'text-gray-500 hover:bg-purple-100 hover:text-purple-600'
+              }`
+            }
+          >
+            {({ isActive }) => (
+              <>
+                <HiOutlineShieldCheck className={`text-2xl md:text-xl ${isActive ? 'text-white' : ''}`} />
+                <span className={`text-xs md:text-base font-medium ${!isActive && 'hidden md:block'}`}>
+                  Admin
+                </span>
+              </>
+            )}
+          </NavLink>
+        )}
       </div>
 
       <div className="hidden md:block w-full mt-auto">

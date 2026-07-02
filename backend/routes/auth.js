@@ -66,6 +66,8 @@ router.post(
         name: user.name,
         email: user.email,
         avatarUrl: user.avatarUrl,
+        role: user.role,
+        relationshipStartDate: user.relationshipStartDate,
         token: accessToken,         // short-lived, 15min
       });
     } catch (error) {
@@ -111,6 +113,8 @@ router.post(
         name: user.name,
         email: user.email,
         avatarUrl: user.avatarUrl,
+        role: user.role,
+        relationshipStartDate: user.relationshipStartDate,
         token: accessToken,
       });
     } catch (error) {
@@ -186,6 +190,8 @@ router.get('/me', protect, async (req, res) => {
     email: req.user.email,
     avatarUrl: req.user.avatarUrl,
     partnerId: req.user.partnerId || null,
+    role: req.user.role,
+    relationshipStartDate: req.user.relationshipStartDate,
   });
 });
 
