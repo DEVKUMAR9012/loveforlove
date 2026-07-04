@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
+  HiOutlineBell,
   HiOutlineCamera,
   HiOutlineDownload,
+  HiOutlineMail,
+  HiOutlinePhotograph,
   HiOutlineRefresh,
   HiOutlineShare,
-  HiOutlineSparkles,
   HiOutlineTrash,
   HiOutlineX,
 } from 'react-icons/hi';
@@ -13,6 +15,7 @@ import {
 const DB_NAME = 'loveforlove-local-snaps';
 const STORE_NAME = 'snaps';
 const DB_VERSION = 1;
+const PARTNER_EMAIL_KEY = 'loveforlove-partner-email';
 
 function openSnapDb() {
   return new Promise((resolve, reject) => {
@@ -97,6 +100,8 @@ function Snap() {
   const [snaps, setSnaps] = useState([]);
   const [preview, setPreview] = useState(null);
   const [caption, setCaption] = useState('');
+  const [partnerEmail, setPartnerEmail] = useState(() => localStorage.getItem(PARTNER_EMAIL_KEY) || '');
+  const [notice, setNotice] = useState('Ready');
   const [error, setError] = useState('');
 
   const canUseCamera = useMemo(
@@ -108,6 +113,14 @@ function Snap() {
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
     if (videoRef.current) videoRef.current.srcObject = null;
+  }, []);
+
+  const pushNotice = useCallback((message) => {
+    setNotice(message);
+
+    if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification('loveforlove', { body: message });
+    }
   }, []);
 
   const loadSnaps = useCallback(async () => {
@@ -123,22 +136,33 @@ function Snap() {
     return stopCamera;
   }, [loadSnaps, stopCamera]);
 
+  const requestNotifications = async () => {
+    if (!('Notification' in window)) {
+      pushNotice('Notifications are not available here');
+      return;
+    }
+
+    const result = await Notification.requestPermission();
+    pushNotice(result === 'granted' ? 'Notifications on' : 'Notifications off');
+  };
+
   const startCamera = async (mode = facingMode) => {
     setError('');
     if (!canUseCamera) {
-      setError('This browser cannot open the camera or local storage.');
+      setError('Camera or local storage is not available in this browser.');
       return;
     }
 
     try {
       setPermissionState('requesting');
+      pushNotice('Opening camera');
       stopCamera();
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: false,
         video: {
           facingMode: mode,
-          width: { ideal: 1280 },
-          height: { ideal: 1280 },
+          width: { ideal: 1440 },
+          height: { ideal: 1440 },
         },
       });
 
@@ -149,9 +173,11 @@ function Snap() {
       }
       setFacingMode(mode);
       setPermissionState('granted');
+      pushNotice('Camera live');
     } catch (err) {
       setPermissionState('denied');
-      setError('Camera permission is needed to take a snap. Allow camera access and try again.');
+      setError('Allow camera access from the browser prompt, then tap the camera button again.');
+      pushNotice('Camera blocked');
     }
   };
 
@@ -161,10 +187,15 @@ function Snap() {
   };
 
   const captureSnap = () => {
+    if (permissionState !== 'granted') {
+      startCamera();
+      return;
+    }
+
     const video = videoRef.current;
     const canvas = canvasRef.current;
     if (!video || !canvas || !video.videoWidth) {
-      setError('Camera is still warming up. Try again in a second.');
+      pushNotice('Camera warming up');
       return;
     }
 
@@ -181,11 +212,12 @@ function Snap() {
     }
 
     ctx.drawImage(video, sx, sy, side, side, 0, 0, canvas.width, canvas.height);
-    setPreview(canvas.toDataURL('image/jpeg', 0.86));
+    setPreview(canvas.toDataURL('image/jpeg', 0.88));
+    pushNotice('Snap captured');
   };
 
-  const saveSnap = async () => {
-    if (!preview) return;
+  const createSnap = async () => {
+    if (!preview) return null;
 
     const snap = {
       id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}`,
@@ -194,11 +226,17 @@ function Snap() {
       createdAt: Date.now(),
     };
 
+    await saveLocalSnap(snap);
+    setSnaps((prev) => [snap, ...prev]);
+    setPreview(null);
+    setCaption('');
+    return snap;
+  };
+
+  const saveSnap = async () => {
     try {
-      await saveLocalSnap(snap);
-      setSnaps((prev) => [snap, ...prev]);
-      setPreview(null);
-      setCaption('');
+      await createSnap();
+      pushNotice('Saved on this device');
     } catch (err) {
       setError('Could not save this snap locally. Your browser storage may be full.');
     }
@@ -207,6 +245,7 @@ function Snap() {
   const deleteSnap = async (id) => {
     await deleteLocalSnap(id);
     setSnaps((prev) => prev.filter((snap) => snap.id !== id));
+    pushNotice('Snap deleted');
   };
 
   const shareSnap = async (snap) => {
@@ -214,10 +253,11 @@ function Snap() {
       const file = dataUrlToFile(snap.image, `snap-${snap.id}.jpg`);
       if (navigator.canShare?.({ files: [file] }) && navigator.share) {
         await navigator.share({
-          title: 'Our snap',
-          text: snap.caption || 'A local snap from us',
+          title: 'loveforlove snap',
+          text: snap.caption || 'A snap for you',
           files: [file],
         });
+        pushNotice('Choose Mail or chat to send');
         return;
       }
 
@@ -225,121 +265,182 @@ function Snap() {
       link.href = snap.image;
       link.download = `snap-${snap.id}.jpg`;
       link.click();
+      pushNotice('Snap downloaded');
     } catch (err) {
-      setError('Sharing was cancelled or is not supported on this device.');
+      pushNotice('Share cancelled');
+    }
+  };
+
+  const mailSnap = async (snap) => {
+    localStorage.setItem(PARTNER_EMAIL_KEY, partnerEmail.trim());
+    const file = dataUrlToFile(snap.image, `snap-${snap.id}.jpg`);
+
+    if (navigator.canShare?.({ files: [file] }) && navigator.share) {
+      await shareSnap(snap);
+      return;
+    }
+
+    const to = encodeURIComponent(partnerEmail.trim());
+    const subject = encodeURIComponent('A snap for you');
+    const body = encodeURIComponent('I made a snap for you. The photo was saved/downloaded from this device.');
+    window.location.href = `mailto:${to}?subject=${subject}&body=${body}`;
+    pushNotice('Mail opened');
+  };
+
+  const sendPreviewSnap = async () => {
+    try {
+      const snap = await createSnap();
+      if (snap) await mailSnap(snap);
+    } catch (err) {
+      setError('Could not prepare this snap to send.');
     }
   };
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="max-w-6xl mx-auto pb-24 md:pb-0 space-y-6"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="mx-auto -m-4 md:-m-8 min-h-[calc(100vh-5rem)] overflow-hidden bg-[#050507] pb-24 text-white md:pb-0"
     >
-      <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-12 h-12 rounded-2xl bg-violet-100 text-violet-600 flex items-center justify-center shadow-sm">
+      <div className="mx-auto grid min-h-[calc(100vh-5rem)] max-w-7xl lg:grid-cols-[minmax(0,1fr)_340px]">
+        <section className="relative flex min-h-[calc(100vh-5rem)] items-center justify-center overflow-hidden bg-black">
+          <video
+            ref={videoRef}
+            playsInline
+            muted
+            className={`absolute inset-0 h-full w-full object-cover ${facingMode === 'user' ? 'scale-x-[-1]' : ''}`}
+          />
+
+          {permissionState !== 'granted' && (
+            <button
+              onClick={() => startCamera()}
+              aria-label="Open camera"
+              className="absolute inset-0 flex items-center justify-center bg-[radial-gradient(circle_at_center,#232334_0%,#060607_70%)]"
+            >
+              <span className="flex h-24 w-24 items-center justify-center rounded-full border-4 border-white/80 bg-white/10 text-white shadow-2xl backdrop-blur">
+                <HiOutlineCamera className="text-5xl" />
+              </span>
+            </button>
+          )}
+
+          <div className="absolute left-4 right-4 top-4 z-10 flex items-center justify-between gap-3">
+            <button
+              onClick={requestNotifications}
+              className="flex max-w-[72%] items-center gap-2 rounded-full bg-black/45 px-4 py-2 text-sm font-semibold text-white shadow-lg backdrop-blur"
+            >
+              <HiOutlineBell className="text-lg text-yellow-300" />
+              <span className="truncate">{notice}</span>
+            </button>
+
+            <button
+              onClick={() => startCamera()}
+              aria-label="Open camera"
+              title="Open camera"
+              className="flex h-11 w-11 items-center justify-center rounded-full bg-black/45 text-white shadow-lg backdrop-blur hover:bg-black/60"
+            >
               <HiOutlineCamera className="text-2xl" />
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-[0.2em] text-gray-400 font-semibold">Local snaps</p>
-              <h1 className="text-3xl md:text-4xl font-bold text-gray-800">Snap together</h1>
-            </div>
+            </button>
           </div>
-          <p className="text-gray-500">Real camera selfies saved only on this device. Nothing uploads to our cloud.</p>
-        </div>
 
-        <button
-          onClick={() => startCamera()}
-          className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-violet-500 text-white font-semibold hover:bg-violet-600 shadow-sm"
-        >
-          <HiOutlineCamera className="text-xl" />
-          {permissionState === 'granted' ? 'Restart camera' : 'Allow camera'}
-        </button>
-      </div>
+          {error && (
+            <div className="absolute left-4 right-4 top-20 z-10 rounded-2xl bg-rose-500/90 px-4 py-3 text-sm font-semibold shadow-lg">
+              {error}
+            </div>
+          )}
 
-      {error && (
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-          {error}
-        </div>
-      )}
+          <div className="absolute bottom-8 left-0 right-0 z-10 flex items-center justify-center gap-6 px-5">
+            <button
+              onClick={switchCamera}
+              disabled={permissionState !== 'granted'}
+              title="Switch camera"
+              aria-label="Switch camera"
+              className="flex h-14 w-14 items-center justify-center rounded-full bg-black/45 text-white shadow-xl backdrop-blur hover:bg-black/60 disabled:opacity-40"
+            >
+              <HiOutlineRefresh className="text-2xl" />
+            </button>
 
-      <div className="grid lg:grid-cols-[minmax(0,1fr)_360px] gap-5">
-        <section className="glass p-4 md:p-6 shadow-sm">
-          <div className="relative mx-auto aspect-square max-w-xl overflow-hidden rounded-[2rem] bg-gray-900 shadow-xl">
-            <video
-              ref={videoRef}
-              playsInline
-              muted
-              className={`h-full w-full object-cover ${facingMode === 'user' ? 'scale-x-[-1]' : ''}`}
+            <button
+              onClick={captureSnap}
+              title="Take snap"
+              aria-label="Take snap"
+              className="h-24 w-24 rounded-full border-[6px] border-white bg-white/25 shadow-2xl backdrop-blur transition hover:scale-105 active:scale-95"
             />
 
-            {permissionState !== 'granted' && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-violet-950 to-gray-950 p-8 text-center text-white">
-                <HiOutlineSparkles className="mb-4 text-5xl text-violet-200" />
-                <h2 className="text-2xl font-bold">Camera permission first</h2>
-                <p className="mt-2 text-sm text-white/70">
-                  Your browser will ask before the camera turns on. Snaps stay local on this device.
-                </p>
-              </div>
-            )}
-
-            <div className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-4 bg-gradient-to-t from-black/60 to-transparent p-5">
-              <button
-                onClick={switchCamera}
-                disabled={permissionState !== 'granted'}
-                title="Switch camera"
-                aria-label="Switch camera"
-                className="h-12 w-12 rounded-full bg-white/20 text-white backdrop-blur hover:bg-white/30 disabled:opacity-40 flex items-center justify-center"
-              >
-                <HiOutlineRefresh className="text-2xl" />
-              </button>
-              <button
-                onClick={captureSnap}
-                disabled={permissionState !== 'granted'}
-                title="Take snap"
-                aria-label="Take snap"
-                className="h-20 w-20 rounded-full border-4 border-white bg-white/30 shadow-2xl backdrop-blur hover:scale-105 disabled:opacity-40"
-              />
-            </div>
+            <button
+              onClick={() => pushNotice(`${snaps.length} saved`)}
+              title="Saved snaps"
+              aria-label="Saved snaps"
+              className="relative flex h-14 w-14 items-center justify-center rounded-full bg-black/45 text-white shadow-xl backdrop-blur hover:bg-black/60"
+            >
+              <HiOutlinePhotograph className="text-2xl" />
+              {snaps.length > 0 && (
+                <span className="absolute -right-1 -top-1 flex h-6 min-w-6 items-center justify-center rounded-full bg-yellow-300 px-1 text-xs font-bold text-black">
+                  {snaps.length}
+                </span>
+              )}
+            </button>
           </div>
+
           <canvas ref={canvasRef} className="hidden" />
         </section>
 
-        <aside className="glass p-5 shadow-sm h-fit">
-          <div className="mb-4">
-            <p className="text-xs uppercase tracking-[0.2em] text-gray-400 font-semibold">Device album</p>
-            <h2 className="text-2xl font-bold text-gray-800">Saved snaps</h2>
+        <aside className="border-l border-white/10 bg-[#101014] p-4 shadow-2xl">
+          <div className="mb-4 rounded-3xl bg-white/8 p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-white/35">Notifications</p>
+                <h2 className="text-xl font-bold">Inbox</h2>
+              </div>
+              <span className="rounded-full bg-yellow-300 px-2 py-1 text-xs font-bold text-black">
+                {snaps.length}
+              </span>
+            </div>
+            <input
+              value={partnerEmail}
+              onChange={(event) => {
+                setPartnerEmail(event.target.value);
+                localStorage.setItem(PARTNER_EMAIL_KEY, event.target.value);
+              }}
+              className="w-full rounded-2xl border border-white/10 bg-black/35 px-4 py-3 text-sm text-white outline-none placeholder:text-white/35 focus:border-yellow-300"
+              placeholder="partner@email.com"
+              type="email"
+            />
           </div>
 
           {snaps.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-gray-200 bg-white/50 p-6 text-center">
-              <HiOutlineCamera className="mx-auto mb-3 text-4xl text-gray-300" />
-              <p className="font-bold text-gray-700">No local snaps yet</p>
-              <p className="text-sm text-gray-400 mt-1">Take a selfie and save it on this phone or laptop.</p>
+            <div className="rounded-3xl border border-dashed border-white/15 p-8 text-center text-white/45">
+              <HiOutlineCamera className="mx-auto mb-3 text-4xl" />
+              <p className="text-sm font-semibold">No snaps yet</p>
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-3">
               {snaps.map((snap) => (
-                <div key={snap.id} className="group relative overflow-hidden rounded-2xl bg-white shadow-sm">
-                  <img src={snap.image} alt={snap.caption || 'Saved snap'} className="aspect-square w-full object-cover" />
-                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-2">
-                    <p className="truncate text-xs font-semibold text-white">{snap.caption || 'Local snap'}</p>
+                <div key={snap.id} className="group relative overflow-hidden rounded-3xl bg-white/10 shadow-lg">
+                  <img src={snap.image} alt={snap.caption || 'Saved snap'} className="aspect-[9/12] w-full object-cover" />
+                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 to-transparent p-2">
+                    <p className="truncate text-xs font-bold text-white">{snap.caption || 'Snap'}</p>
                     <div className="mt-2 flex gap-1">
                       <button
+                        onClick={() => mailSnap(snap)}
+                        title="Send"
+                        aria-label="Send"
+                        className="rounded-xl bg-white/20 p-2 text-white backdrop-blur hover:bg-yellow-300 hover:text-black"
+                      >
+                        <HiOutlineMail />
+                      </button>
+                      <button
                         onClick={() => shareSnap(snap)}
-                        title="Share or download"
-                        aria-label="Share or download"
-                        className="rounded-lg bg-white/20 p-2 text-white backdrop-blur hover:bg-white/30"
+                        title="Share"
+                        aria-label="Share"
+                        className="rounded-xl bg-white/20 p-2 text-white backdrop-blur hover:bg-white/30"
                       >
                         {navigator.share ? <HiOutlineShare /> : <HiOutlineDownload />}
                       </button>
                       <button
                         onClick={() => deleteSnap(snap.id)}
-                        title="Delete local snap"
-                        aria-label="Delete local snap"
-                        className="rounded-lg bg-white/20 p-2 text-white backdrop-blur hover:bg-rose-500"
+                        title="Delete"
+                        aria-label="Delete"
+                        className="rounded-xl bg-white/20 p-2 text-white backdrop-blur hover:bg-rose-500"
                       >
                         <HiOutlineTrash />
                       </button>
@@ -358,49 +459,49 @@ function Snap() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-gray-950/80 p-4"
+            className="fixed inset-0 z-50 bg-black"
           >
-            <motion.div
-              initial={{ scale: 0.95, y: 18 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.95, y: 18 }}
-              className="w-full max-w-md overflow-hidden rounded-[2rem] bg-white shadow-2xl"
+            <img src={preview} alt="Snap preview" className="h-full w-full object-contain" />
+
+            <button
+              onClick={() => setPreview(null)}
+              title="Close"
+              aria-label="Close"
+              className="absolute right-4 top-4 rounded-full bg-black/50 p-3 text-white backdrop-blur hover:bg-black/70"
             >
-              <div className="relative">
-                <img src={preview} alt="Snap preview" className="aspect-square w-full object-cover" />
-                <button
-                  onClick={() => setPreview(null)}
-                  title="Close preview"
-                  aria-label="Close preview"
-                  className="absolute right-3 top-3 rounded-full bg-black/40 p-2 text-white backdrop-blur hover:bg-black/60"
-                >
-                  <HiOutlineX className="text-xl" />
-                </button>
-              </div>
-              <div className="space-y-3 p-4">
-                <input
-                  value={caption}
-                  onChange={(event) => setCaption(event.target.value)}
-                  maxLength={80}
-                  className="w-full rounded-2xl border border-gray-200 px-4 py-3 focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-100"
-                  placeholder="Add a caption..."
-                />
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    onClick={() => setPreview(null)}
-                    className="rounded-2xl bg-gray-100 px-4 py-3 font-semibold text-gray-600 hover:bg-gray-200"
-                  >
-                    Retake
-                  </button>
-                  <button
-                    onClick={saveSnap}
-                    className="rounded-2xl bg-violet-500 px-4 py-3 font-semibold text-white hover:bg-violet-600"
-                  >
-                    Save locally
-                  </button>
-                </div>
-              </div>
-            </motion.div>
+              <HiOutlineX className="text-2xl" />
+            </button>
+
+            <div className="absolute left-4 right-4 top-5 mx-auto max-w-md">
+              <input
+                value={caption}
+                onChange={(event) => setCaption(event.target.value)}
+                maxLength={80}
+                className="w-full rounded-full border border-white/20 bg-black/40 px-5 py-3 text-center text-white outline-none backdrop-blur placeholder:text-white/60 focus:border-yellow-300"
+                placeholder="Add caption"
+              />
+            </div>
+
+            <div className="absolute bottom-6 left-4 right-4 mx-auto grid max-w-md grid-cols-3 gap-3">
+              <button
+                onClick={() => setPreview(null)}
+                className="rounded-full bg-white/15 px-4 py-3 font-bold text-white backdrop-blur hover:bg-white/25"
+              >
+                Retake
+              </button>
+              <button
+                onClick={saveSnap}
+                className="rounded-full bg-white px-4 py-3 font-bold text-black hover:bg-yellow-100"
+              >
+                Save
+              </button>
+              <button
+                onClick={sendPreviewSnap}
+                className="rounded-full bg-yellow-300 px-4 py-3 font-bold text-black hover:bg-yellow-200"
+              >
+                Send
+              </button>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
