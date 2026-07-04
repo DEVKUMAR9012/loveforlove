@@ -9,7 +9,8 @@ import {
   HiOutlineMicrophone,
   HiOutlineMail,
   HiOutlineCog,
-  HiOutlineShieldCheck
+  HiOutlineShieldCheck,
+  HiOutlineLogout
 } from 'react-icons/hi';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -42,13 +43,13 @@ function Navbar() {
         <p className="text-xs text-sky-600 mt-1">Together Forever ✨</p>
       </div>
 
-      <div className="flex md:flex-col flex-1 w-full justify-around md:justify-start gap-4">
+      <div className="flex md:flex-col flex-1 w-full justify-start md:justify-start gap-2 md:gap-4 overflow-x-auto pb-2 md:pb-0 hide-scrollbar px-2 md:px-0 items-center">
         {navItems.map((item) => (
           <NavLink
             key={item.path}
             to={item.path}
             className={({ isActive }) =>
-              `flex flex-col md:flex-row items-center gap-2 p-2 md:p-4 rounded-2xl transition-all duration-300 w-full ${
+              `flex flex-col md:flex-row items-center gap-1 md:gap-2 p-2 md:p-4 rounded-2xl transition-all duration-300 min-w-[4rem] md:w-full flex-shrink-0 justify-center md:justify-start ${
                 isActive 
                   ? 'bg-gradient-to-r from-blush-400 to-blush-500 text-white shadow-md' 
                   : 'text-gray-500 hover:bg-blush-100 hover:text-blush-600'
@@ -69,7 +70,7 @@ function Navbar() {
           <NavLink
             to="/admin"
             className={({ isActive }) =>
-              `flex flex-col md:flex-row items-center gap-2 p-2 md:p-4 rounded-2xl transition-all duration-300 w-full ${
+              `flex flex-col md:flex-row items-center gap-1 md:gap-2 p-2 md:p-4 rounded-2xl transition-all duration-300 min-w-[4rem] md:w-full flex-shrink-0 justify-center md:justify-start ${
                 isActive 
                   ? 'bg-gradient-to-r from-purple-400 to-purple-500 text-white shadow-md' 
                   : 'text-gray-500 hover:bg-purple-100 hover:text-purple-600'
@@ -86,6 +87,15 @@ function Navbar() {
             )}
           </NavLink>
         )}
+        
+        {/* Mobile Logout Button */}
+        <button
+          onClick={handleLogout}
+          className="md:hidden flex flex-col items-center justify-center gap-1 p-2 rounded-2xl transition-all duration-300 min-w-[4rem] flex-shrink-0 text-gray-500 hover:bg-blush-100 hover:text-blush-600"
+        >
+          <HiOutlineLogout className="text-2xl" />
+          <span className="text-xs font-medium">Logout</span>
+        </button>
       </div>
 
       <div className="hidden md:block w-full mt-auto">
