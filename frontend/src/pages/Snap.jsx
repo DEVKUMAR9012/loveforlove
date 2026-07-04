@@ -123,14 +123,6 @@ function Snap() {
     if (videoRef.current) videoRef.current.srcObject = null;
   }, []);
 
-  const pushNotice = useCallback((message) => {
-    setNotice(message);
-
-    if ('Notification' in window && Notification.permission === 'granted') {
-      new Notification('loveforlove', { body: message });
-    }
-  }, []);
-
   const loadSnaps = useCallback(async () => {
     try {
       setSnaps(await readLocalSnaps());
@@ -172,10 +164,6 @@ function Snap() {
       startCamera();
     }
   }, [permissionState]);
-
-  useEffect(() => {
-    return stopCamera;
-  }, [stopCamera]);
 
   // Global Notification Bar Effect
   const [showToast, setShowToast] = useState(false);
