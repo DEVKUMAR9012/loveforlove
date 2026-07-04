@@ -11,6 +11,7 @@ import {
   HiOutlineTrash,
   HiOutlineX,
 } from 'react-icons/hi';
+import { useAuth } from '../context/AuthContext';
 
 const DB_NAME = 'loveforlove-local-snaps';
 const STORE_NAME = 'snaps';
@@ -92,6 +93,7 @@ function dataUrlToFile(dataUrl, filename) {
 }
 
 function Snap() {
+  const { backendUrl } = useAuth();
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
@@ -101,6 +103,8 @@ function Snap() {
   const [preview, setPreview] = useState(null);
   const [caption, setCaption] = useState('');
   const [partnerEmail, setPartnerEmail] = useState(() => localStorage.getItem(PARTNER_EMAIL_KEY) || '');
+  const [inboxSnaps, setInboxSnaps] = useState([]);
+  const [sending, setSending] = useState(false);
   const [notice, setNotice] = useState('Ready');
   const [error, setError] = useState('');
 
@@ -131,10 +135,36 @@ function Snap() {
     }
   }, []);
 
+  const loadInbox = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${backendUrl}/api/snaps/inbox`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!res.ok) return;
+      const data = await res.json();
+      setInboxSnaps(data);
+      const unread = data.filter((snap) => !snap.openedAt).length;
+      if (unread > 0) setNotice(`${unread} new snap${unread === 1 ? '' : 's'}`);
+    } catch {
+      // Inbox polling should never break the camera.
+    }
+  }, [backendUrl]);
+
   useEffect(() => {
     loadSnaps();
+    loadInbox();
+    const timer = setInterval(loadInbox, 30000);
+    return () => {
+      clearInterval(timer);
+      stopCamera();
+    };
+  }, [loadInbox, loadSnaps, stopCamera]);
+
+  useEffect(() => {
     return stopCamera;
-  }, [loadSnaps, stopCamera]);
+  }, [stopCamera]);
 
   const requestNotifications = async () => {
     if (!('Notification' in window)) {
@@ -287,12 +317,61 @@ function Snap() {
     pushNotice('Mail opened');
   };
 
+  const sendSnapToPartner = async (snap) => {
+    const file = dataUrlToFile(snap.image, `snap-${snap.id}.jpg`);
+    const token = localStorage.getItem('token');
+    const formData = new FormData();
+    formData.append('snap', file);
+    formData.append('caption', snap.caption || '');
+
+    const res = await fetch(`${backendUrl}/api/snaps`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData,
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Could not send snap');
+    return data;
+  };
+
   const sendPreviewSnap = async () => {
+    if (sending) return;
+    setSending(true);
+    setError('');
+
     try {
       const snap = await createSnap();
-      if (snap) await mailSnap(snap);
+      if (!snap) return;
+
+      const result = await sendSnapToPartner(snap);
+      await loadInbox();
+
+      if (result.email?.sent) {
+        pushNotice('Snap sent + email delivered');
+      } else {
+        pushNotice('Snap sent in app');
+      }
     } catch (err) {
-      setError('Could not prepare this snap to send.');
+      setError(err.message || 'Could not send snap.');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const openInboxSnap = async (snap) => {
+    try {
+      const token = localStorage.getItem('token');
+      await fetch(`${backendUrl}/api/snaps/${snap._id}/open`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setInboxSnaps((prev) =>
+        prev.map((item) => (item._id === snap._id ? { ...item, openedAt: new Date().toISOString() } : item))
+      );
+      window.open(snap.imageUrl, '_blank', 'noopener,noreferrer');
+    } catch {
+      window.open(snap.imageUrl, '_blank', 'noopener,noreferrer');
     }
   };
 
@@ -392,7 +471,7 @@ function Snap() {
                 <h2 className="text-xl font-bold">Inbox</h2>
               </div>
               <span className="rounded-full bg-yellow-300 px-2 py-1 text-xs font-bold text-black">
-                {snaps.length}
+                {inboxSnaps.filter((snap) => !snap.openedAt).length}
               </span>
             </div>
             <input
@@ -406,6 +485,28 @@ function Snap() {
               type="email"
             />
           </div>
+
+          {inboxSnaps.length > 0 && (
+            <div className="mb-4 space-y-2">
+              {inboxSnaps.slice(0, 3).map((snap) => (
+                <button
+                  key={snap._id}
+                  onClick={() => openInboxSnap(snap)}
+                  className={`flex w-full items-center gap-3 rounded-2xl border px-3 py-2 text-left ${
+                    snap.openedAt
+                      ? 'border-white/10 bg-white/5 text-white/55'
+                      : 'border-yellow-300/40 bg-yellow-300/15 text-white'
+                  }`}
+                >
+                  <img src={snap.imageUrl} alt="Incoming snap" className="h-12 w-12 rounded-xl object-cover" />
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-bold">{snap.sender?.name || 'Partner'}</p>
+                    <p className="truncate text-xs text-white/45">{snap.caption || 'Sent a snap'}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
 
           {snaps.length === 0 ? (
             <div className="rounded-3xl border border-dashed border-white/15 p-8 text-center text-white/45">
@@ -497,9 +598,10 @@ function Snap() {
               </button>
               <button
                 onClick={sendPreviewSnap}
-                className="rounded-full bg-yellow-300 px-4 py-3 font-bold text-black hover:bg-yellow-200"
+                disabled={sending}
+                className="rounded-full bg-yellow-300 px-4 py-3 font-bold text-black hover:bg-yellow-200 disabled:opacity-60"
               >
-                Send
+                {sending ? 'Sending' : 'Send'}
               </button>
             </div>
           </motion.div>

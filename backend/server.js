@@ -15,6 +15,7 @@ const moodRoutes     = require('./routes/mood');
 const adminRoutes    = require('./routes/admin');
 const settingsRoutes = require('./routes/settings');
 const calendarRoutes = require('./routes/calendar');
+const snapsRoutes    = require('./routes/snaps');
 
 const app = express();
 
@@ -71,6 +72,7 @@ app.use('/api/mood',     moodRoutes);
 app.use('/api/admin',    adminRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/calendar', calendarRoutes);
+app.use('/api/snaps',    snapsRoutes);
 
 // ── 404 handler ───────────────────────────────────────────────────────────
 app.use((req, res) => {
