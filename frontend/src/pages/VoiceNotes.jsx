@@ -240,7 +240,11 @@ export default function VoiceNotes() {
             onPointerLeave={() => {
               if (recording) stopAndUpload();
             }}
+            onContextMenu={(e) => {
+              e.preventDefault(); // Prevent long-press context menu on mobile
+            }}
             disabled={uploading}
+            style={{ touchAction: 'none' }} // Prevent scrolling when pressing on mobile
             className={`w-20 h-20 rounded-full text-white text-3xl font-bold shadow-xl mx-auto flex items-center justify-center transition-all duration-200 select-none ${
               recording
                 ? 'bg-red-500 scale-110 shadow-red-200'

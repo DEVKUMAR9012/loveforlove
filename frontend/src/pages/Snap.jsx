@@ -107,6 +107,10 @@ function Snap() {
   const [sending, setSending] = useState(false);
   const [notice, setNotice] = useState('Ready');
   const [error, setError] = useState('');
+  
+  // UI states for modals
+  const [showMemories, setShowMemories] = useState(false);
+  const [showInbox, setShowInbox] = useState(false);
 
   const canUseCamera = useMemo(
     () => Boolean(navigator.mediaDevices?.getUserMedia && window.indexedDB),
@@ -163,18 +167,28 @@ function Snap() {
   }, [loadInbox, loadSnaps, stopCamera]);
 
   useEffect(() => {
+    // Auto-start camera if we haven't asked yet
+    if (permissionState === 'idle') {
+      startCamera();
+    }
+  }, [permissionState]);
+
+  useEffect(() => {
     return stopCamera;
   }, [stopCamera]);
 
-  const requestNotifications = async () => {
-    if (!('Notification' in window)) {
-      pushNotice('Notifications are not available here');
-      return;
-    }
+  // Global Notification Bar Effect
+  const [showToast, setShowToast] = useState(false);
+  
+  const pushNotice = useCallback((message) => {
+    setNotice(message);
+    setShowToast(true);
+    setTimeout(() => setShowToast(false), 3000);
 
-    const result = await Notification.requestPermission();
-    pushNotice(result === 'granted' ? 'Notifications on' : 'Notifications off');
-  };
+    if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification('loveforlove', { body: message });
+    }
+  }, []);
 
   const startCamera = async (mode = facingMode) => {
     setError('');
@@ -376,185 +390,87 @@ function Snap() {
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="mx-auto -m-4 md:-m-8 min-h-[calc(100vh-5rem)] overflow-hidden bg-[#050507] pb-24 text-white md:pb-0"
-    >
-      <div className="mx-auto grid min-h-[calc(100vh-5rem)] max-w-7xl lg:grid-cols-[minmax(0,1fr)_340px]">
-        <section className="relative flex min-h-[calc(100vh-5rem)] items-center justify-center overflow-hidden bg-black">
-          <video
-            ref={videoRef}
-            playsInline
-            muted
-            className={`absolute inset-0 h-full w-full object-cover ${facingMode === 'user' ? 'scale-x-[-1]' : ''}`}
+    <div className="fixed inset-0 z-40 bg-black overflow-hidden flex flex-col">
+      {/* Global Notification Toast */}
+      <AnimatePresence>
+        {showToast && (
+          <motion.div
+            initial={{ y: -100, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -100, opacity: 0 }}
+            className="absolute top-4 left-4 right-4 z-[60] flex justify-center pointer-events-none"
+          >
+            <div className="bg-white/90 backdrop-blur-md text-black px-6 py-3 rounded-full font-bold shadow-xl flex items-center gap-3 pointer-events-auto">
+              <span className="text-xl">✨</span>
+              {notice}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <section className="relative flex-1 bg-black">
+        <video
+          ref={videoRef}
+          playsInline
+          muted
+          className={`absolute inset-0 h-full w-full object-cover ${facingMode === 'user' ? 'scale-x-[-1]' : ''}`}
+        />
+
+        {/* Top Controls Overlay */}
+        <div className="absolute top-6 right-4 z-10 flex flex-col gap-4">
+          <button
+            onClick={switchCamera}
+            disabled={permissionState !== 'granted'}
+            className="flex h-12 w-12 items-center justify-center rounded-full bg-black/40 text-white shadow-xl backdrop-blur-md hover:bg-black/60 disabled:opacity-40"
+          >
+            <HiOutlineRefresh className="text-2xl" />
+          </button>
+        </div>
+
+        {error && (
+          <div className="absolute left-4 right-4 top-24 z-10 rounded-2xl bg-rose-500/90 px-4 py-3 text-sm font-semibold shadow-lg text-white">
+            {error}
+          </div>
+        )}
+
+        {/* Bottom Capture Controls */}
+        <div className="absolute bottom-10 left-0 right-0 z-10 flex items-center justify-center gap-12 px-6">
+          <button
+            onClick={() => setShowMemories(true)}
+            title="Memories"
+            className="relative flex h-14 w-14 items-center justify-center rounded-full bg-black/40 text-white shadow-xl backdrop-blur-md hover:bg-black/60"
+          >
+            <HiOutlinePhotograph className="text-2xl" />
+            {snaps.length > 0 && (
+              <span className="absolute -right-1 -top-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-yellow-400 px-1 text-xs font-bold text-black border-2 border-black">
+                {snaps.length}
+              </span>
+            )}
+          </button>
+
+          {/* Large Capture Button */}
+          <button
+            onClick={captureSnap}
+            className="h-[5rem] w-[5rem] rounded-full border-[5px] border-white bg-transparent shadow-[0_0_15px_rgba(0,0,0,0.5)] transition hover:scale-105 active:scale-95"
           />
 
-          {permissionState !== 'granted' && (
-            <button
-              onClick={() => startCamera()}
-              aria-label="Open camera"
-              className="absolute inset-0 flex items-center justify-center bg-[radial-gradient(circle_at_center,#232334_0%,#060607_70%)]"
-            >
-              <span className="flex h-24 w-24 items-center justify-center rounded-full border-4 border-white/80 bg-white/10 text-white shadow-2xl backdrop-blur">
-                <HiOutlineCamera className="text-5xl" />
+          <button
+            onClick={() => setShowInbox(true)}
+            className="relative flex h-14 w-14 items-center justify-center rounded-full bg-black/40 text-white shadow-xl backdrop-blur-md hover:bg-black/60"
+          >
+            <HiOutlineMail className="text-2xl" />
+            {inboxSnaps.filter(s => !s.openedAt).length > 0 && (
+              <span className="absolute -right-1 -top-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-rose-500 px-1 text-xs font-bold text-white border-2 border-black">
+                {inboxSnaps.filter(s => !s.openedAt).length}
               </span>
-            </button>
-          )}
+            )}
+          </button>
+        </div>
 
-          <div className="absolute left-4 right-4 top-4 z-10 flex items-center justify-between gap-3">
-            <button
-              onClick={requestNotifications}
-              className="flex max-w-[72%] items-center gap-2 rounded-full bg-black/45 px-4 py-2 text-sm font-semibold text-white shadow-lg backdrop-blur"
-            >
-              <HiOutlineBell className="text-lg text-yellow-300" />
-              <span className="truncate">{notice}</span>
-            </button>
+        <canvas ref={canvasRef} className="hidden" />
+      </section>
 
-            <button
-              onClick={() => startCamera()}
-              aria-label="Open camera"
-              title="Open camera"
-              className="flex h-11 w-11 items-center justify-center rounded-full bg-black/45 text-white shadow-lg backdrop-blur hover:bg-black/60"
-            >
-              <HiOutlineCamera className="text-2xl" />
-            </button>
-          </div>
-
-          {error && (
-            <div className="absolute left-4 right-4 top-20 z-10 rounded-2xl bg-rose-500/90 px-4 py-3 text-sm font-semibold shadow-lg">
-              {error}
-            </div>
-          )}
-
-          <div className="absolute bottom-8 left-0 right-0 z-10 flex items-center justify-center gap-6 px-5">
-            <button
-              onClick={switchCamera}
-              disabled={permissionState !== 'granted'}
-              title="Switch camera"
-              aria-label="Switch camera"
-              className="flex h-14 w-14 items-center justify-center rounded-full bg-black/45 text-white shadow-xl backdrop-blur hover:bg-black/60 disabled:opacity-40"
-            >
-              <HiOutlineRefresh className="text-2xl" />
-            </button>
-
-            <button
-              onClick={captureSnap}
-              title="Take snap"
-              aria-label="Take snap"
-              className="h-24 w-24 rounded-full border-[6px] border-white bg-white/25 shadow-2xl backdrop-blur transition hover:scale-105 active:scale-95"
-            />
-
-            <button
-              onClick={() => pushNotice(`${snaps.length} saved`)}
-              title="Saved snaps"
-              aria-label="Saved snaps"
-              className="relative flex h-14 w-14 items-center justify-center rounded-full bg-black/45 text-white shadow-xl backdrop-blur hover:bg-black/60"
-            >
-              <HiOutlinePhotograph className="text-2xl" />
-              {snaps.length > 0 && (
-                <span className="absolute -right-1 -top-1 flex h-6 min-w-6 items-center justify-center rounded-full bg-yellow-300 px-1 text-xs font-bold text-black">
-                  {snaps.length}
-                </span>
-              )}
-            </button>
-          </div>
-
-          <canvas ref={canvasRef} className="hidden" />
-        </section>
-
-        <aside className="border-l border-white/10 bg-[#101014] p-4 shadow-2xl">
-          <div className="mb-4 rounded-3xl bg-white/8 p-4">
-            <div className="mb-3 flex items-center justify-between">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-[0.18em] text-white/35">Notifications</p>
-                <h2 className="text-xl font-bold">Inbox</h2>
-              </div>
-              <span className="rounded-full bg-yellow-300 px-2 py-1 text-xs font-bold text-black">
-                {inboxSnaps.filter((snap) => !snap.openedAt).length}
-              </span>
-            </div>
-            <input
-              value={partnerEmail}
-              onChange={(event) => {
-                setPartnerEmail(event.target.value);
-                localStorage.setItem(PARTNER_EMAIL_KEY, event.target.value);
-              }}
-              className="w-full rounded-2xl border border-white/10 bg-black/35 px-4 py-3 text-sm text-white outline-none placeholder:text-white/35 focus:border-yellow-300"
-              placeholder="partner@email.com"
-              type="email"
-            />
-          </div>
-
-          {inboxSnaps.length > 0 && (
-            <div className="mb-4 space-y-2">
-              {inboxSnaps.slice(0, 3).map((snap) => (
-                <button
-                  key={snap._id}
-                  onClick={() => openInboxSnap(snap)}
-                  className={`flex w-full items-center gap-3 rounded-2xl border px-3 py-2 text-left ${
-                    snap.openedAt
-                      ? 'border-white/10 bg-white/5 text-white/55'
-                      : 'border-yellow-300/40 bg-yellow-300/15 text-white'
-                  }`}
-                >
-                  <img src={snap.imageUrl} alt="Incoming snap" className="h-12 w-12 rounded-xl object-cover" />
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-bold">{snap.sender?.name || 'Partner'}</p>
-                    <p className="truncate text-xs text-white/45">{snap.caption || 'Sent a snap'}</p>
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-
-          {snaps.length === 0 ? (
-            <div className="rounded-3xl border border-dashed border-white/15 p-8 text-center text-white/45">
-              <HiOutlineCamera className="mx-auto mb-3 text-4xl" />
-              <p className="text-sm font-semibold">No snaps yet</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-3">
-              {snaps.map((snap) => (
-                <div key={snap.id} className="group relative overflow-hidden rounded-3xl bg-white/10 shadow-lg">
-                  <img src={snap.image} alt={snap.caption || 'Saved snap'} className="aspect-[9/12] w-full object-cover" />
-                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 to-transparent p-2">
-                    <p className="truncate text-xs font-bold text-white">{snap.caption || 'Snap'}</p>
-                    <div className="mt-2 flex gap-1">
-                      <button
-                        onClick={() => mailSnap(snap)}
-                        title="Send"
-                        aria-label="Send"
-                        className="rounded-xl bg-white/20 p-2 text-white backdrop-blur hover:bg-yellow-300 hover:text-black"
-                      >
-                        <HiOutlineMail />
-                      </button>
-                      <button
-                        onClick={() => shareSnap(snap)}
-                        title="Share"
-                        aria-label="Share"
-                        className="rounded-xl bg-white/20 p-2 text-white backdrop-blur hover:bg-white/30"
-                      >
-                        {navigator.share ? <HiOutlineShare /> : <HiOutlineDownload />}
-                      </button>
-                      <button
-                        onClick={() => deleteSnap(snap.id)}
-                        title="Delete"
-                        aria-label="Delete"
-                        className="rounded-xl bg-white/20 p-2 text-white backdrop-blur hover:bg-rose-500"
-                      >
-                        <HiOutlineTrash />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </aside>
-      </div>
-
-      <AnimatePresence>
+      {/* Snap Preview Overlay */}
         {preview && (
           <motion.div
             initial={{ opacity: 0 }}
@@ -606,8 +522,120 @@ function Snap() {
             </div>
           </motion.div>
         )}
+
+      {/* Memories Modal */}
+      <AnimatePresence>
+        {showMemories && (
+          <motion.div
+            initial={{ y: '100%' }}
+            animate={{ y: 0 }}
+            exit={{ y: '100%' }}
+            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+            className="fixed inset-0 z-50 bg-[#101014] overflow-y-auto"
+          >
+            <div className="sticky top-0 bg-[#101014]/90 backdrop-blur-xl p-4 flex justify-between items-center border-b border-white/10 z-10">
+              <h2 className="text-xl font-bold text-white">Saved Memories</h2>
+              <button onClick={() => setShowMemories(false)} className="p-2 bg-white/10 rounded-full text-white">
+                <HiOutlineX className="text-xl" />
+              </button>
+            </div>
+            <div className="p-4">
+              {snaps.length === 0 ? (
+                <div className="rounded-3xl border border-dashed border-white/15 p-12 text-center text-white/45 mt-10">
+                  <HiOutlineCamera className="mx-auto mb-3 text-5xl" />
+                  <p className="text-lg font-semibold">No snaps saved yet</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {snaps.map((snap) => (
+                    <div key={snap.id} className="group relative overflow-hidden rounded-3xl bg-white/10 shadow-lg">
+                      <img src={snap.image} alt={snap.caption || 'Saved snap'} className="aspect-[9/16] w-full object-cover" />
+                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 to-transparent p-3">
+                        <p className="truncate text-sm font-bold text-white">{snap.caption || 'Snap'}</p>
+                        <div className="mt-3 flex gap-2 justify-between">
+                          <button onClick={() => mailSnap(snap)} className="rounded-xl bg-white/20 p-2 text-white backdrop-blur hover:bg-yellow-300 hover:text-black flex-1 flex justify-center"><HiOutlineMail /></button>
+                          <button onClick={() => shareSnap(snap)} className="rounded-xl bg-white/20 p-2 text-white backdrop-blur hover:bg-white/30 flex-1 flex justify-center">{navigator.share ? <HiOutlineShare /> : <HiOutlineDownload />}</button>
+                          <button onClick={() => deleteSnap(snap.id)} className="rounded-xl bg-white/20 p-2 text-white backdrop-blur hover:bg-rose-500 flex-1 flex justify-center"><HiOutlineTrash /></button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
       </AnimatePresence>
-    </motion.div>
+
+      {/* Inbox Modal */}
+      <AnimatePresence>
+        {showInbox && (
+          <motion.div
+            initial={{ x: '100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '100%' }}
+            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+            className="fixed inset-0 z-50 bg-[#101014] overflow-y-auto"
+          >
+            <div className="sticky top-0 bg-[#101014]/90 backdrop-blur-xl p-4 flex justify-between items-center border-b border-white/10 z-10">
+              <h2 className="text-xl font-bold text-white">Inbox</h2>
+              <button onClick={() => setShowInbox(false)} className="p-2 bg-white/10 rounded-full text-white">
+                <HiOutlineX className="text-xl" />
+              </button>
+            </div>
+            
+            <div className="p-4">
+              <div className="mb-6 rounded-3xl bg-white/5 p-5 border border-white/10">
+                <p className="text-sm text-white/60 mb-2">Partner's Email (for manual sending)</p>
+                <input
+                  value={partnerEmail}
+                  onChange={(event) => {
+                    setPartnerEmail(event.target.value);
+                    localStorage.setItem(PARTNER_EMAIL_KEY, event.target.value);
+                  }}
+                  className="w-full rounded-2xl border border-white/10 bg-black/50 px-4 py-3 text-sm text-white outline-none placeholder:text-white/35 focus:border-yellow-300 transition"
+                  placeholder="partner@email.com"
+                  type="email"
+                />
+              </div>
+
+              <h3 className="text-sm font-bold uppercase tracking-[0.15em] text-white/40 mb-4">Received Snaps</h3>
+              
+              {inboxSnaps.length === 0 ? (
+                <div className="text-center text-white/30 py-10">
+                  <p>Inbox is empty</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {inboxSnaps.map((snap) => (
+                    <button
+                      key={snap._id}
+                      onClick={() => openInboxSnap(snap)}
+                      className={`flex w-full items-center gap-4 rounded-3xl border p-3 text-left transition ${
+                        snap.openedAt
+                          ? 'border-white/5 bg-white/5 text-white/50'
+                          : 'border-yellow-300/40 bg-yellow-300/10 text-white hover:bg-yellow-300/20'
+                      }`}
+                    >
+                      <div className="relative">
+                        <img src={snap.imageUrl} alt="Incoming snap" className="h-16 w-16 rounded-2xl object-cover" />
+                        {!snap.openedAt && (
+                          <span className="absolute -top-1 -right-1 flex h-4 w-4 rounded-full bg-rose-500 border-2 border-[#101014]" />
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-base font-bold">{snap.sender?.name || 'Partner'}</p>
+                        <p className="truncate text-sm text-white/60 mt-1">{snap.caption || 'Tap to view snap'}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }
 
