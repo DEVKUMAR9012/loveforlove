@@ -10,8 +10,10 @@ import {
   HiOutlineShare,
   HiOutlineTrash,
   HiOutlineX,
+  HiOutlineArrowLeft,
 } from 'react-icons/hi';
 import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 const DB_NAME = 'loveforlove-local-snaps';
 const STORE_NAME = 'snaps';
@@ -94,6 +96,7 @@ function dataUrlToFile(dataUrl, filename) {
 
 function Snap() {
   const { backendUrl } = useAuth();
+  const navigate = useNavigate();
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
@@ -378,7 +381,7 @@ function Snap() {
   };
 
   return (
-    <div className="fixed inset-0 z-40 bg-black overflow-hidden flex flex-col">
+    <div className="fixed inset-0 z-[60] bg-black overflow-hidden flex flex-col">
       {/* Global Notification Toast */}
       <AnimatePresence>
         {showToast && (
@@ -405,6 +408,15 @@ function Snap() {
         />
 
         {/* Top Controls Overlay */}
+        <div className="absolute top-6 left-4 z-10">
+          <button
+            onClick={() => navigate('/')}
+            className="flex h-12 w-12 items-center justify-center rounded-full bg-black/40 text-white shadow-xl backdrop-blur-md hover:bg-black/60"
+          >
+            <HiOutlineArrowLeft className="text-2xl" />
+          </button>
+        </div>
+
         <div className="absolute top-6 right-4 z-10 flex flex-col gap-4">
           <button
             onClick={switchCamera}
