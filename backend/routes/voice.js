@@ -5,9 +5,13 @@ const cloudinary = require('cloudinary').v2;
 const { Readable } = require('stream');
 const VoiceNote = require('../models/VoiceNote');
 const { protect } = require('../middleware/authMiddleware');
+const { uploadLimiter } = require('../middleware/rateLimiters');
 
 // ── Memory storage: NO file ever touches disk ──────────────────────────────
-const upload = multer({ storage: multer.memoryStorage() });
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 15 * 1024 * 1024 },
+});
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -26,10 +30,34 @@ function uploadBufferToCloudinary(buffer, options) {
   });
 }
 
+const getSharedUserIds = (user) => {
+  const ids = [user._id];
+  if (user.partnerId) ids.push(user.partnerId);
+  return ids;
+};
+
+const serializeVoiceNote = (note) => {
+  const obj = note.toObject();
+  const creator = obj.userId && typeof obj.userId === 'object' ? obj.userId : null;
+
+  return {
+    ...obj,
+    userId: creator?._id || obj.userId,
+    createdBy: creator
+      ? {
+          _id: creator._id,
+          name: creator.name,
+          email: creator.email,
+          avatarUrl: creator.avatarUrl,
+        }
+      : null,
+  };
+};
+
 // @route  POST /api/voice/upload
 // @desc   Upload a voice note — stored 100% in Cloudinary, nothing on disk
 // @access Private
-router.post('/upload', protect, upload.single('audio'), async (req, res) => {
+router.post('/upload', protect, uploadLimiter, upload.single('audio'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No audio file provided' });
 
@@ -37,7 +65,6 @@ router.post('/upload', protect, upload.single('audio'), async (req, res) => {
     const result = await uploadBufferToCloudinary(req.file.buffer, {
       resource_type: 'video',          // Cloudinary uses 'video' type for audio files
       folder:        'our-universe/voice-notes',
-      format:        'webm',
     });
 
     const voiceNote = await VoiceNote.create({
@@ -47,7 +74,8 @@ router.post('/upload', protect, upload.single('audio'), async (req, res) => {
       duration: req.body.duration ? parseFloat(req.body.duration) : 0,
     });
 
-    res.status(201).json(voiceNote);
+    const saved = await VoiceNote.findById(voiceNote._id).populate('userId', 'name email avatarUrl');
+    res.status(201).json(serializeVoiceNote(saved));
   } catch (err) {
     console.error('Voice upload error:', err);
     res.status(500).json({ error: err.message });
@@ -59,8 +87,10 @@ router.post('/upload', protect, upload.single('audio'), async (req, res) => {
 // @access Private
 router.get('/', protect, async (req, res) => {
   try {
-    const notes = await VoiceNote.find({ userId: req.user._id }).sort({ createdAt: -1 });
-    res.json(notes);
+    const notes = await VoiceNote.find({ userId: { $in: getSharedUserIds(req.user) } })
+      .populate('userId', 'name email avatarUrl')
+      .sort({ createdAt: -1 });
+    res.json(notes.map(serializeVoiceNote));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

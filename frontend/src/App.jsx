@@ -8,7 +8,7 @@ import Layout from './components/layout/Layout';
 import MediaGallery from './pages/MediaGallery';
 import SharedCalendar from './pages/SharedCalendar';
 import MoodTracker from './pages/MoodTracker';
-import DailyPrompts from './pages/DailyPrompts';
+import Snap from './pages/Snap';
 import VoiceNotes from './pages/VoiceNotes';
 import Messages from './pages/Messages';
 import Settings from './pages/Settings';
@@ -48,7 +48,8 @@ function App() {
               <Route path="/gallery"  element={<Guarded><MediaGallery /></Guarded>} />
               <Route path="/calendar" element={<Guarded><SharedCalendar /></Guarded>} />
               <Route path="/mood"     element={<Guarded><MoodTracker /></Guarded>} />
-              <Route path="/prompts"  element={<Guarded><DailyPrompts /></Guarded>} />
+              <Route path="/snap"     element={<Guarded><Snap /></Guarded>} />
+              <Route path="/prompts"  element={<Navigate to="/snap" replace />} />
               <Route path="/voice"    element={<Guarded><VoiceNotes /></Guarded>} />
               <Route path="/messages" element={<Guarded><Messages /></Guarded>} />
               <Route path="/settings" element={<Guarded><Settings /></Guarded>} />

@@ -1,6 +1,6 @@
 import { useAuth } from '../context/AuthContext';
 import { motion } from 'framer-motion';
-import { HiOutlineHeart, HiOutlineCalendar, HiOutlinePhotograph, HiOutlineChatAlt2, HiOutlineMicrophone, HiOutlinePencilAlt } from 'react-icons/hi';
+import { HiOutlineHeart, HiOutlineCalendar, HiOutlinePhotograph, HiOutlineCamera, HiOutlineMicrophone, HiOutlinePencilAlt } from 'react-icons/hi';
 import { useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 
@@ -32,7 +32,7 @@ function Dashboard() {
     { title: 'My Gallery', icon: HiOutlinePhotograph, path: '/gallery', color: 'text-blush-500', bg: 'from-blush-50 to-pink-50', desc: 'Photos & memories' },
     { title: 'Calendar', icon: HiOutlineCalendar, path: '/calendar', color: 'text-sky-500', bg: 'from-sky-50 to-blue-50', desc: 'Important dates' },
     { title: 'Mood Journal', icon: HiOutlineHeart, path: '/mood', color: 'text-rose-400', bg: 'from-rose-50 to-pink-50', desc: 'Track your feelings' },
-    { title: 'Daily Prompts', icon: HiOutlineChatAlt2, path: '/prompts', color: 'text-violet-500', bg: 'from-violet-50 to-purple-50', desc: 'Reflect & write' },
+    { title: 'Snap', icon: HiOutlineCamera, path: '/snap', color: 'text-violet-500', bg: 'from-violet-50 to-purple-50', desc: 'Camera selfies' },
     { title: 'Voice Notes', icon: HiOutlineMicrophone, path: '/voice', color: 'text-amber-500', bg: 'from-amber-50 to-yellow-50', desc: 'Record your voice' },
     { title: 'Messages', icon: HiOutlinePencilAlt, path: '/messages', color: 'text-teal-500', bg: 'from-teal-50 to-emerald-50', desc: 'Notes & letters' },
   ];
