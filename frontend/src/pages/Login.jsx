@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
+import { FcGoogle } from 'react-icons/fc';
+import { FaInstagram, FaFacebook } from 'react-icons/fa';
 
 function Login() {
   const [name, setName] = useState('');
@@ -11,7 +13,20 @@ function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { login, register } = useAuth();
+  const { login, register, signInWithSocial } = useAuth();
+
+  const handleSocialAuth = async (provider) => {
+    setError('');
+    setLoading(true);
+    try {
+      await signInWithSocial(provider);
+      navigate('/');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleAuth = async (e) => {
     e.preventDefault();
@@ -137,7 +152,48 @@ function Login() {
           </motion.button>
         </form>
 
-        <p className="text-center text-gray-500 mt-5 text-sm">
+        <div className="mt-8 flex items-center justify-center gap-4">
+          <div className="h-px bg-gray-200 flex-1"></div>
+          <span className="text-xs text-gray-400 font-medium tracking-wider uppercase">Or continue with</span>
+          <div className="h-px bg-gray-200 flex-1"></div>
+        </div>
+
+        <div className="flex justify-center gap-5 mt-6">
+          <motion.button 
+            type="button"
+            onClick={() => handleSocialAuth('google')}
+            disabled={loading}
+            whileHover={{ scale: 1.08, y: -3, rotate: -3 }} 
+            whileTap={{ scale: 0.95 }}
+            className="flex items-center justify-center w-12 h-12 bg-white rounded-[1rem] shadow-sm border border-gray-100 hover:shadow-md transition text-2xl"
+          >
+            <FcGoogle />
+          </motion.button>
+          
+          <motion.button 
+            type="button"
+            onClick={() => handleSocialAuth('instagram')}
+            disabled={loading}
+            whileHover={{ scale: 1.08, y: -3, rotate: 3 }} 
+            whileTap={{ scale: 0.95 }}
+            className="flex items-center justify-center w-12 h-12 bg-gradient-to-tr from-yellow-400 via-pink-500 to-purple-600 rounded-[1rem] shadow-sm hover:shadow-md transition text-white text-[1.4rem]"
+          >
+            <FaInstagram />
+          </motion.button>
+          
+          <motion.button 
+            type="button"
+            onClick={() => handleSocialAuth('facebook')}
+            disabled={loading}
+            whileHover={{ scale: 1.08, y: -3, rotate: -3 }} 
+            whileTap={{ scale: 0.95 }}
+            className="flex items-center justify-center w-12 h-12 bg-[#1877F2] rounded-[1rem] shadow-sm hover:shadow-md transition text-white text-[1.4rem]"
+          >
+            <FaFacebook />
+          </motion.button>
+        </div>
+
+        <p className="text-center text-gray-500 mt-8 text-sm">
           {isSignUp ? 'Already have an account?' : "Don't have an account?"}
           <button
             id="toggle-auth-mode"

@@ -1,4 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import { signInWithPopup } from 'firebase/auth';
+import { auth, googleProvider, facebookProvider, instagramProvider } from '../firebaseConfig';
 
 const AuthContext = createContext(null);
 
@@ -106,6 +108,51 @@ export function AuthProvider({ children }) {
     scheduleRefresh();
   };
 
+  // ── Social Login ───────────────────────────────────────────────────────
+  const signInWithSocial = async (providerName) => {
+    let provider;
+    if (providerName === 'google') provider = googleProvider;
+    else if (providerName === 'facebook') provider = facebookProvider;
+    else if (providerName === 'instagram') provider = instagramProvider;
+    else throw new Error('Unknown provider');
+
+    try {
+      // 1. Sign in with Firebase popup
+      const result = await signInWithPopup(auth, provider);
+      const idToken = await result.user.getIdToken();
+
+      // 2. Send the Firebase token to our custom backend
+      const res = await fetch(`${API}/api/auth/social`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: idToken }),
+        credentials: 'include',
+      });
+      
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Social login failed');
+
+      // 3. Set the custom session from our backend
+      localStorage.setItem('token', data.token);
+      setUser({ 
+        _id: data._id, 
+        name: data.name, 
+        email: data.email, 
+        avatarUrl: data.avatarUrl,
+        role: data.role,
+        relationshipStartDate: data.relationshipStartDate
+      });
+      scheduleRefresh();
+    } catch (err) {
+      console.error("Social login error:", err);
+      // Firebase throws errors with a code property
+      if (err.code === 'auth/popup-closed-by-user') {
+         throw new Error('Sign in popup was closed.');
+      }
+      throw new Error(err.message || 'Social login failed');
+    }
+  };
+
   // ── Register ───────────────────────────────────────────────────────────
   const register = async (name, email, password) => {
     const res  = await fetch(`${API}/api/auth/register`, {
@@ -154,7 +201,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, updateRelationshipDate, backendUrl: API }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, updateRelationshipDate, signInWithSocial, backendUrl: API }}>
       {children}
     </AuthContext.Provider>
   );

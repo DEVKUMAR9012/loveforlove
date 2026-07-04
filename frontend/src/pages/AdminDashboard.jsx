@@ -97,10 +97,10 @@ function AdminDashboard() {
                         <img src={user.avatarUrl} alt="" className="w-8 h-8 rounded-full object-cover" />
                       ) : (
                         <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-500">
-                          {user.name.charAt(0).toUpperCase()}
+                          {(user.name || user.email || '?').charAt(0).toUpperCase()}
                         </div>
                       )}
-                      <span className="font-medium text-gray-800">{user.name}</span>
+                      <span className="font-medium text-gray-800">{user.name || user.email || 'Unknown'}</span>
                     </div>
                   </td>
                   <td className="py-4 text-gray-600">{user.email}</td>
@@ -115,7 +115,7 @@ function AdminDashboard() {
                   <td className="py-4">
                     {user.role !== 'admin' && (
                       <button 
-                        onClick={() => handleDeleteUser(user._id, user.name)}
+                        onClick={() => handleDeleteUser(user._id, user.name || user.email || 'User')}
                         className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
                         title="Delete User"
                       >

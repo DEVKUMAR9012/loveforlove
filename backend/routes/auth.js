@@ -4,6 +4,9 @@ const bcrypt  = require('bcryptjs');
 const jwt     = require('jsonwebtoken');
 const crypto  = require('crypto');
 const User    = require('../models/User');
+require('../config/firebase'); // Runs the initialisation
+const { getAuth } = require('firebase-admin/auth');
+const { getApps } = require('firebase-admin/app');
 const { protect } = require('../middleware/authMiddleware');
 const { loginLimiter, registerLimiter, refreshLimiter } = require('../middleware/rateLimiters');
 const { registerRules, loginRules, linkPartnerRules, validate } = require('../middleware/validators');
@@ -120,6 +123,79 @@ router.post(
     } catch (error) {
       console.error('Login error:', error);
       res.status(500).json({ message: 'Server error' });
+    }
+  }
+);
+
+// @route  POST /api/auth/social
+// @access Public (rate-limited)
+router.post(
+  '/social',
+  loginLimiter,
+  async (req, res) => {
+    try {
+      const { token } = req.body;
+      if (!token) return res.status(400).json({ message: 'No token provided' });
+
+      if (getApps().length === 0) {
+        return res.status(500).json({ message: 'Firebase Admin not initialized on server. Please add serviceAccountKey.json' });
+      }
+
+      // Verify the Firebase ID token
+      const decodedToken = await getAuth().verifyIdToken(token);
+      const { uid, email, name, picture } = decodedToken;
+
+      if (!email) {
+        return res.status(400).json({ message: 'Email is required from social provider' });
+      }
+
+      // Find user or create if they don't exist
+      let user = await User.findOne({ email }).select('+refreshTokens');
+      
+      if (!user) {
+        // Create new user (using a random password since they login via social)
+        const randomPassword = crypto.randomBytes(20).toString('hex');
+        const hashedPassword = await bcrypt.hash(randomPassword, 12);
+        
+        user = await User.create({
+          name: name || email.split('@')[0],
+          email: email,
+          password: hashedPassword,
+          avatarUrl: picture || ''
+        });
+      } else if (!user.avatarUrl && picture) {
+         // Optionally update avatar if they didn't have one
+         await User.findByIdAndUpdate(user._id, { avatarUrl: picture });
+         user.avatarUrl = picture;
+      }
+
+      // Generate our custom tokens
+      const accessToken  = generateAccessToken(user._id);
+      const refreshToken = generateRefreshToken();
+
+      const hashed = hashToken(refreshToken);
+      const updatedTokens = [...(user.refreshTokens || []), hashed].slice(-5);
+      await User.findByIdAndUpdate(user._id, { refreshTokens: updatedTokens });
+
+      res.cookie('refreshToken', refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 30 * 24 * 60 * 60 * 1000,
+      });
+
+      res.json({
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        avatarUrl: user.avatarUrl,
+        role: user.role,
+        relationshipStartDate: user.relationshipStartDate,
+        token: accessToken,
+      });
+    } catch (error) {
+      console.error('Social login error:', error);
+      res.status(401).json({ message: 'Invalid or expired social token' });
     }
   }
 );
