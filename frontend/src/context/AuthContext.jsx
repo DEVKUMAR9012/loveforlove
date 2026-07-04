@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { signInWithPopup } from 'firebase/auth';
+import { signInWithPopup, signInWithRedirect, getRedirectResult } from 'firebase/auth';
 import { auth, googleProvider, facebookProvider, instagramProvider } from '../firebaseConfig';
 
 const AuthContext = createContext(null);
@@ -48,6 +48,27 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const bootstrap = async () => {
       let token = localStorage.getItem('token');
+
+      // Also check if we just returned from a Firebase redirect (Mobile auth)
+      try {
+        const redirectResult = await getRedirectResult(auth);
+        if (redirectResult?.user) {
+          const idToken = await redirectResult.user.getIdToken();
+          const socialRes = await fetch(`${API}/api/auth/social`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: idToken }),
+            credentials: 'include',
+          });
+          if (socialRes.ok) {
+            const data = await socialRes.json();
+            localStorage.setItem('token', data.token);
+            token = data.token; // Use this token for the rest of the flow
+          }
+        }
+      } catch (err) {
+        console.error("Firebase redirect error:", err);
+      }
 
       if (token) {
         // Try existing token
@@ -116,8 +137,16 @@ export function AuthProvider({ children }) {
     else if (providerName === 'instagram') provider = instagramProvider;
     else throw new Error('Unknown provider');
 
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
     try {
-      // 1. Sign in with Firebase popup
+      if (isMobile) {
+        // On mobile, use redirect to avoid popup blockers and "popup closed" errors
+        await signInWithRedirect(auth, provider);
+        return; // Execution stops here, page will redirect
+      }
+
+      // 1. Sign in with Firebase popup (Desktop)
       const result = await signInWithPopup(auth, provider);
       const idToken = await result.user.getIdToken();
 
