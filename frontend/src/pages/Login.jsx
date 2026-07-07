@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
@@ -19,7 +19,14 @@ function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { login, register, signInWithSocial, acceptPartnerInvite } = useAuth();
+  const { user, login, register, signInWithSocial, acceptPartnerInvite } = useAuth();
+
+  // Redirect if already logged in (e.g. after mobile redirect)
+  useEffect(() => {
+    if (user) {
+      navigate('/');
+    }
+  }, [user, navigate]);
 
   const acceptInviteIfPresent = async () => {
     const normalizedCode = normalizeInviteCode(inviteCode);
