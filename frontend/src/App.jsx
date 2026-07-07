@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import Login from './pages/Login';
+import Invite from './pages/Invite';
 import Dashboard from './pages/Dashboard';
 import Layout from './components/layout/Layout';
 import MediaGallery from './pages/MediaGallery';
@@ -40,6 +41,14 @@ function App() {
             <Route
               path="/login"
               element={<Guarded><Login /></Guarded>}
+            />
+            <Route
+              path="/invite"
+              element={<Guarded><Invite /></Guarded>}
+            />
+            <Route
+              path="/join"
+              element={<Guarded><Invite /></Guarded>}
             />
 
             {/* Protected Routes wrapped in Layout */}

@@ -11,6 +11,7 @@ import {
   HiOutlineTrash,
   HiOutlineX,
   HiOutlineArrowLeft,
+  HiOutlineUpload,
 } from 'react-icons/hi';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -100,6 +101,7 @@ function Snap() {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
+  const fileInputRef = useRef(null);
   const [permissionState, setPermissionState] = useState('idle');
   const [facingMode, setFacingMode] = useState('user');
   const [snaps, setSnaps] = useState([]);
@@ -162,10 +164,7 @@ function Snap() {
   }, [loadInbox, loadSnaps, stopCamera]);
 
   useEffect(() => {
-    // Auto-start camera if we haven't asked yet
-    if (permissionState === 'idle') {
-      startCamera();
-    }
+    // Wait for the user to explicitly allow via the custom prompt
   }, [permissionState]);
 
   // Global Notification Bar Effect
@@ -219,6 +218,19 @@ function Snap() {
   const switchCamera = () => {
     const nextMode = facingMode === 'user' ? 'environment' : 'user';
     startCamera(nextMode);
+  };
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setPreview(event.target.result);
+      pushNotice('Photo uploaded from gallery');
+    };
+    reader.readAsDataURL(file);
+    e.target.value = ''; // Reset input
   };
 
   const captureSnap = () => {
@@ -434,11 +446,11 @@ function Snap() {
         )}
 
         {/* Bottom Capture Controls */}
-        <div className="absolute bottom-10 left-0 right-0 z-10 flex items-center justify-center gap-12 px-6">
+        <div className="absolute bottom-10 left-0 right-0 z-10 flex items-center justify-center gap-6 px-4">
           <button
             onClick={() => setShowMemories(true)}
             title="Memories"
-            className="relative flex h-14 w-14 items-center justify-center rounded-full bg-black/40 text-white shadow-xl backdrop-blur-md hover:bg-black/60"
+            className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-black/40 text-white shadow-xl backdrop-blur-md hover:bg-black/60"
           >
             <HiOutlinePhotograph className="text-2xl" />
             {snaps.length > 0 && (
@@ -448,15 +460,23 @@ function Snap() {
             )}
           </button>
 
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            title="Gallery"
+            className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-black/40 text-white shadow-xl backdrop-blur-md hover:bg-black/60"
+          >
+            <HiOutlineUpload className="text-2xl" />
+          </button>
+
           {/* Large Capture Button */}
           <button
             onClick={captureSnap}
-            className="h-[5rem] w-[5rem] rounded-full border-[5px] border-white bg-transparent shadow-[0_0_15px_rgba(0,0,0,0.5)] transition hover:scale-105 active:scale-95"
+            className="h-[5rem] w-[5rem] shrink-0 rounded-full border-[5px] border-white bg-transparent shadow-[0_0_15px_rgba(0,0,0,0.5)] transition hover:scale-105 active:scale-95"
           />
 
           <button
             onClick={() => setShowInbox(true)}
-            className="relative flex h-14 w-14 items-center justify-center rounded-full bg-black/40 text-white shadow-xl backdrop-blur-md hover:bg-black/60"
+            className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-black/40 text-white shadow-xl backdrop-blur-md hover:bg-black/60"
           >
             <HiOutlineMail className="text-2xl" />
             {inboxSnaps.filter(s => !s.openedAt).length > 0 && (
@@ -468,6 +488,48 @@ function Snap() {
         </div>
 
         <canvas ref={canvasRef} className="hidden" />
+        
+        <input
+          type="file"
+          accept="image/*"
+          ref={fileInputRef}
+          onChange={handleFileUpload}
+          className="hidden"
+        />
+
+        {/* Cute Permission Modal */}
+        <AnimatePresence>
+          {permissionState === 'idle' && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-6"
+            >
+              <div className="bg-[#1a1a24] border border-white/10 rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl">
+                <div className="text-6xl mb-4">📸</div>
+                <h3 className="text-2xl font-bold text-white mb-3">Snap Access</h3>
+                <p className="text-white/70 mb-8">
+                  Can we use your camera to take cute snaps? You can also upload photos from your gallery! 🥺
+                </p>
+                <div className="flex flex-col gap-3">
+                  <button
+                    onClick={() => startCamera()}
+                    className="w-full bg-yellow-300 text-black font-bold py-4 rounded-2xl text-lg hover:bg-yellow-400 transition active:scale-95"
+                  >
+                    Yes, allow! 💛
+                  </button>
+                  <button
+                    onClick={() => navigate('/')}
+                    className="w-full bg-white/10 text-white font-bold py-4 rounded-2xl text-lg hover:bg-white/20 transition active:scale-95"
+                  >
+                    Maybe later
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </section>
 
       {/* Snap Preview Overlay */}

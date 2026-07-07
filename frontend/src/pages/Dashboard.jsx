@@ -1,6 +1,6 @@
 import { useAuth } from '../context/AuthContext';
 import { motion } from 'framer-motion';
-import { HiOutlineHeart, HiOutlineCalendar, HiOutlinePhotograph, HiOutlineCamera, HiOutlineMicrophone, HiOutlinePencilAlt } from 'react-icons/hi';
+import { HiOutlineHeart, HiOutlineCalendar, HiOutlinePhotograph, HiOutlineCamera, HiOutlineMicrophone, HiOutlinePencilAlt, HiOutlineUserAdd } from 'react-icons/hi';
 import { useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 
@@ -35,6 +35,7 @@ function Dashboard() {
     { title: 'Snap', icon: HiOutlineCamera, path: '/snap', color: 'text-violet-500', bg: 'from-violet-50 to-purple-50', desc: 'Camera selfies' },
     { title: 'Voice Notes', icon: HiOutlineMicrophone, path: '/voice', color: 'text-amber-500', bg: 'from-amber-50 to-yellow-50', desc: 'Record your voice' },
     { title: 'Messages', icon: HiOutlinePencilAlt, path: '/messages', color: 'text-teal-500', bg: 'from-teal-50 to-emerald-50', desc: 'Notes & letters' },
+    { title: user?.partnerId ? 'Partner Linked' : 'Invite Partner', icon: HiOutlineUserAdd, path: '/invite', color: 'text-mint-500', bg: 'from-mint-50 to-emerald-50', desc: user?.partnerId ? 'Connected' : 'Share a code' },
   ];
 
   const greetingEmoji = () => {

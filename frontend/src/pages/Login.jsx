@@ -1,25 +1,39 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { FcGoogle } from 'react-icons/fc';
 import { FaInstagram, FaFacebook } from 'react-icons/fa';
 
+const normalizeInviteCode = (value) => String(value || '').toUpperCase().replace(/[\s-]/g, '');
+
 function Login() {
+  const [searchParams] = useSearchParams();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [inviteCode, setInviteCode] = useState(() =>
+    normalizeInviteCode(searchParams.get('code') || sessionStorage.getItem('pendingInviteCode') || '')
+  );
   const [isSignUp, setIsSignUp] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { login, register, signInWithSocial } = useAuth();
+  const { login, register, signInWithSocial, acceptPartnerInvite } = useAuth();
+
+  const acceptInviteIfPresent = async () => {
+    const normalizedCode = normalizeInviteCode(inviteCode);
+    if (!normalizedCode) return;
+    await acceptPartnerInvite(normalizedCode);
+    sessionStorage.removeItem('pendingInviteCode');
+  };
 
   const handleSocialAuth = async (provider) => {
     setError('');
     setLoading(true);
     try {
       await signInWithSocial(provider);
+      await acceptInviteIfPresent();
       navigate('/');
     } catch (err) {
       setError(err.message);
@@ -39,6 +53,7 @@ function Login() {
       } else {
         await login(email, password);
       }
+      await acceptInviteIfPresent();
       navigate('/');
     } catch (err) {
       setError(err.message);
@@ -118,6 +133,16 @@ function Login() {
             className="w-full px-4 py-3 rounded-2xl border border-blush-200 bg-white/70 focus:outline-none focus:ring-2 focus:ring-blush-400 text-gray-800 placeholder-gray-400 transition"
           />
 
+          <input
+            id="invite-code-input"
+            type="text"
+            placeholder="Invitation code (optional)"
+            value={inviteCode}
+            onChange={(e) => setInviteCode(normalizeInviteCode(e.target.value))}
+            maxLength={8}
+            className="w-full px-4 py-3 rounded-2xl border border-sky-200 bg-white/70 focus:outline-none focus:ring-2 focus:ring-sky-400 text-gray-800 placeholder-gray-400 font-mono uppercase transition"
+          />
+
           <AnimatePresence>
             {error && (
               <motion.p
@@ -144,13 +169,22 @@ function Login() {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
                 </svg>
-                {isSignUp ? 'Creating account...' : 'Signing in...'}
+                {inviteCode ? 'Joining invite...' : (isSignUp ? 'Creating account...' : 'Signing in...')}
               </span>
             ) : (
-              isSignUp ? 'Create Account' : 'Sign In'
+              inviteCode ? (isSignUp ? 'Create & Join' : 'Sign In & Join') : (isSignUp ? 'Create Account' : 'Sign In')
             )}
           </motion.button>
         </form>
+
+        <p className="text-center mt-4 text-sm">
+          <Link
+            to={inviteCode ? `/invite?code=${inviteCode}` : '/invite'}
+            className="text-sky-600 font-semibold hover:underline"
+          >
+            Open invitation code page
+          </Link>
+        </p>
 
         <div className="mt-8 flex items-center justify-center gap-4">
           <div className="h-px bg-gray-200 flex-1"></div>

@@ -1,4 +1,4 @@
-const { body, validationResult } = require('express-validator');
+const { body, param, validationResult } = require('express-validator');
 
 // ── Helper: sends 422 with all validation errors if any exist ─────────────
 const validate = (req, res, next) => {
@@ -46,6 +46,22 @@ const linkPartnerRules = [
     .notEmpty().withMessage('Partner email is required')
     .isEmail().withMessage('Must be a valid email address')
     .normalizeEmail(),
+];
+
+const normalizeInviteCode = (value) => String(value || '').toUpperCase().replace(/[\s-]/g, '');
+
+const inviteCodeRules = [
+  body('code')
+    .customSanitizer(normalizeInviteCode)
+    .notEmpty().withMessage('Invite code is required')
+    .matches(/^[A-Z2-9]{8}$/).withMessage('Invite code must be 8 characters'),
+];
+
+const inviteCodeParamRules = [
+  param('code')
+    .customSanitizer(normalizeInviteCode)
+    .notEmpty().withMessage('Invite code is required')
+    .matches(/^[A-Z2-9]{8}$/).withMessage('Invite code must be 8 characters'),
 ];
 
 // ── Memory / caption validators ────────────────────────────────────────────
@@ -112,6 +128,8 @@ module.exports = {
   registerRules,
   loginRules,
   linkPartnerRules,
+  inviteCodeRules,
+  inviteCodeParamRules,
   captionRules,
   messageRules,
   moodRules,

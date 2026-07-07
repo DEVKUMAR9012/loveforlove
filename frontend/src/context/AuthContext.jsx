@@ -6,6 +6,18 @@ const AuthContext = createContext(null);
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
+const normalizeInviteCode = (value) => String(value || '').toUpperCase().replace(/[\s-]/g, '');
+
+const serializeAuthUser = (data) => ({
+  _id: data._id,
+  name: data.name,
+  email: data.email,
+  avatarUrl: data.avatarUrl,
+  partnerId: data.partnerId || null,
+  role: data.role,
+  relationshipStartDate: data.relationshipStartDate
+});
+
 // ── Silent token refresh ──────────────────────────────────────────────────
 // Calls /api/auth/refresh (uses HttpOnly cookie automatically).
 // Returns new access token or null if refresh token is expired/invalid.
@@ -91,7 +103,7 @@ export function AuthProvider({ children }) {
 
           if (res?.ok) {
             const userData = await res.json();
-            setUser(userData);
+            setUser(serializeAuthUser(userData));
             scheduleRefresh();
           } else {
             localStorage.removeItem('token');
@@ -118,14 +130,7 @@ export function AuthProvider({ children }) {
     if (!res.ok) throw new Error(data.message || 'Login failed');
 
     localStorage.setItem('token', data.token);
-    setUser({ 
-      _id: data._id, 
-      name: data.name, 
-      email: data.email, 
-      avatarUrl: data.avatarUrl,
-      role: data.role,
-      relationshipStartDate: data.relationshipStartDate
-    });
+    setUser(serializeAuthUser(data));
     scheduleRefresh();
   };
 
@@ -163,14 +168,7 @@ export function AuthProvider({ children }) {
 
       // 3. Set the custom session from our backend
       localStorage.setItem('token', data.token);
-      setUser({ 
-        _id: data._id, 
-        name: data.name, 
-        email: data.email, 
-        avatarUrl: data.avatarUrl,
-        role: data.role,
-        relationshipStartDate: data.relationshipStartDate
-      });
+      setUser(serializeAuthUser(data));
       scheduleRefresh();
     } catch (err) {
       console.error("Social login error:", err);
@@ -198,15 +196,48 @@ export function AuthProvider({ children }) {
     }
 
     localStorage.setItem('token', data.token);
-    setUser({ 
-      _id: data._id, 
-      name: data.name, 
-      email: data.email, 
-      avatarUrl: data.avatarUrl,
-      role: data.role,
-      relationshipStartDate: data.relationshipStartDate
-    });
+    setUser(serializeAuthUser(data));
     scheduleRefresh();
+  };
+
+  const createPartnerInvite = async () => {
+    const token = localStorage.getItem('token');
+    const res = await fetch(`${API}/api/auth/invites`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      credentials: 'include',
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || 'Could not create invite code');
+    return data;
+  };
+
+  const previewPartnerInvite = async (code) => {
+    const normalizedCode = normalizeInviteCode(code);
+    const res = await fetch(`${API}/api/auth/invites/${encodeURIComponent(normalizedCode)}`, {
+      credentials: 'include',
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || 'Invite code is not available');
+    return data;
+  };
+
+  const acceptPartnerInvite = async (code) => {
+    const token = localStorage.getItem('token');
+    const normalizedCode = normalizeInviteCode(code);
+    const res = await fetch(`${API}/api/auth/invites/accept`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ code: normalizedCode }),
+      credentials: 'include',
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || 'Could not join with this invite code');
+    if (data.user) setUser(serializeAuthUser(data.user));
+    return data;
   };
 
   // ── Logout ─────────────────────────────────────────────────────────────
@@ -230,7 +261,19 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, updateRelationshipDate, signInWithSocial, backendUrl: API }}>
+    <AuthContext.Provider value={{
+      user,
+      loading,
+      login,
+      register,
+      logout,
+      updateRelationshipDate,
+      signInWithSocial,
+      createPartnerInvite,
+      previewPartnerInvite,
+      acceptPartnerInvite,
+      backendUrl: API
+    }}>
       {children}
     </AuthContext.Provider>
   );

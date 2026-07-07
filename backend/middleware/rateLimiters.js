@@ -46,4 +46,36 @@ const refreshLimiter = rateLimit({
   message: { message: 'Too many token refresh requests.' },
 });
 
-module.exports = { loginLimiter, registerLimiter, uploadLimiter, apiLimiter, refreshLimiter };
+const invitePreviewLimiter = rateLimit({
+  ...COMMON,
+  windowMs: 15 * 60 * 1000,
+  max: 40,
+  message: { message: 'Too many invite code attempts. Please wait 15 minutes and try again.' },
+});
+
+const inviteCreateLimiter = rateLimit({
+  ...COMMON,
+  windowMs: 60 * 60 * 1000,
+  max: 20,
+  keyGenerator: (req) => req.user?._id?.toString() || req.ip,
+  message: { message: 'Too many invite codes created. Please try again later.' },
+});
+
+const inviteAcceptLimiter = rateLimit({
+  ...COMMON,
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  keyGenerator: (req) => req.user?._id?.toString() || req.ip,
+  message: { message: 'Too many invite join attempts. Please wait and try again.' },
+});
+
+module.exports = {
+  loginLimiter,
+  registerLimiter,
+  uploadLimiter,
+  apiLimiter,
+  refreshLimiter,
+  invitePreviewLimiter,
+  inviteCreateLimiter,
+  inviteAcceptLimiter,
+};

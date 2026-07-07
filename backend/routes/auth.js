@@ -4,12 +4,27 @@ const bcrypt  = require('bcryptjs');
 const jwt     = require('jsonwebtoken');
 const crypto  = require('crypto');
 const User    = require('../models/User');
+const PartnerInvite = require('../models/PartnerInvite');
 require('../config/firebase'); // Runs the initialisation
 const { getAuth } = require('firebase-admin/auth');
 const { getApps } = require('firebase-admin/app');
 const { protect } = require('../middleware/authMiddleware');
-const { loginLimiter, registerLimiter, refreshLimiter } = require('../middleware/rateLimiters');
-const { registerRules, loginRules, linkPartnerRules, validate } = require('../middleware/validators');
+const {
+  loginLimiter,
+  registerLimiter,
+  refreshLimiter,
+  invitePreviewLimiter,
+  inviteCreateLimiter,
+  inviteAcceptLimiter,
+} = require('../middleware/rateLimiters');
+const {
+  registerRules,
+  loginRules,
+  linkPartnerRules,
+  inviteCodeRules,
+  inviteCodeParamRules,
+  validate,
+} = require('../middleware/validators');
 
 // ── Token helpers ─────────────────────────────────────────────────────────
 
@@ -26,6 +41,42 @@ const generateRefreshToken = () => crypto.randomBytes(40).toString('hex');
 /** SHA-256 hash of the raw refresh token (what we store in DB) */
 const hashToken = (token) =>
   crypto.createHash('sha256').update(token).digest('hex');
+
+const INVITE_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const INVITE_CODE_LENGTH = 8;
+const INVITE_EXPIRY_MS = 14 * 24 * 60 * 60 * 1000;
+
+const normalizeInviteCode = (value) => String(value || '').toUpperCase().replace(/[\s-]/g, '');
+
+const generateInviteCode = () => {
+  let code = '';
+  for (let i = 0; i < INVITE_CODE_LENGTH; i += 1) {
+    code += INVITE_CODE_ALPHABET[crypto.randomInt(INVITE_CODE_ALPHABET.length)];
+  }
+  return code;
+};
+
+const generateUniqueInviteCode = async () => {
+  for (let attempts = 0; attempts < 10; attempts += 1) {
+    const code = generateInviteCode();
+    const exists = await PartnerInvite.exists({ code });
+    if (!exists) return code;
+  }
+  throw new Error('Could not generate a unique invite code');
+};
+
+const inviteUnavailableMessage = 'Invite code is invalid, expired, or already used';
+
+const serializeUser = (user, token) => ({
+  _id: user._id,
+  name: user.name,
+  email: user.email,
+  avatarUrl: user.avatarUrl,
+  partnerId: user.partnerId || null,
+  role: user.role,
+  relationshipStartDate: user.relationshipStartDate,
+  ...(token && { token }),
+});
 
 // ─────────────────────────────────────────────────────────────────────────
 
@@ -64,15 +115,7 @@ router.post(
         maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
       });
 
-      res.status(201).json({
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        avatarUrl: user.avatarUrl,
-        role: user.role,
-        relationshipStartDate: user.relationshipStartDate,
-        token: accessToken,         // short-lived, 15min
-      });
+      res.status(201).json(serializeUser(user, accessToken));
     } catch (error) {
       console.error('Register error:', error);
       res.status(500).json({ message: 'Server error' });
@@ -111,15 +154,7 @@ router.post(
         maxAge: 30 * 24 * 60 * 60 * 1000,
       });
 
-      res.json({
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        avatarUrl: user.avatarUrl,
-        role: user.role,
-        relationshipStartDate: user.relationshipStartDate,
-        token: accessToken,
-      });
+      res.json(serializeUser(user, accessToken));
     } catch (error) {
       console.error('Login error:', error);
       res.status(500).json({ message: 'Server error' });
@@ -184,15 +219,7 @@ router.post(
         maxAge: 30 * 24 * 60 * 60 * 1000,
       });
 
-      res.json({
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        avatarUrl: user.avatarUrl,
-        role: user.role,
-        relationshipStartDate: user.relationshipStartDate,
-        token: accessToken,
-      });
+      res.json(serializeUser(user, accessToken));
     } catch (error) {
       console.error('Social login error:', error);
       res.status(401).json({ message: 'Invalid or expired social token' });
@@ -260,15 +287,192 @@ router.post('/logout', protect, async (req, res) => {
 // @route  GET /api/auth/me
 // @access Private
 router.get('/me', protect, async (req, res) => {
-  res.json({
-    _id: req.user._id,
-    name: req.user.name,
-    email: req.user.email,
-    avatarUrl: req.user.avatarUrl,
-    partnerId: req.user.partnerId || null,
-    role: req.user.role,
-    relationshipStartDate: req.user.relationshipStartDate,
-  });
+  res.json(serializeUser(req.user));
+});
+
+// @route  POST /api/auth/invites
+// @access Private
+router.post('/invites', protect, inviteCreateLimiter, async (req, res) => {
+  try {
+    if (req.user.partnerId) {
+      return res.status(409).json({ message: 'You are already connected with a partner' });
+    }
+
+    const now = new Date();
+    await PartnerInvite.updateMany(
+      { inviterId: req.user._id, status: 'pending', expiresAt: { $lte: now } },
+      { $set: { status: 'expired' } }
+    );
+
+    let invite = await PartnerInvite.findOne({
+      inviterId: req.user._id,
+      status: 'pending',
+      expiresAt: { $gt: now },
+    }).sort({ createdAt: -1 });
+
+    let statusCode = 200;
+    if (!invite) {
+      invite = await PartnerInvite.create({
+        code: await generateUniqueInviteCode(),
+        inviterId: req.user._id,
+        expiresAt: new Date(Date.now() + INVITE_EXPIRY_MS),
+      });
+      statusCode = 201;
+    }
+
+    res.status(statusCode).json({
+      code: invite.code,
+      expiresAt: invite.expiresAt,
+      status: invite.status,
+    });
+  } catch (err) {
+    console.error('Create invite error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route  GET /api/auth/invites/:code
+// @access Public
+router.get('/invites/:code', invitePreviewLimiter, inviteCodeParamRules, validate, async (req, res) => {
+  try {
+    const code = normalizeInviteCode(req.params.code);
+    const invite = await PartnerInvite.findOne({ code })
+      .populate('inviterId', 'name partnerId')
+      .lean();
+
+    if (!invite || invite.status !== 'pending') {
+      return res.status(404).json({ message: inviteUnavailableMessage });
+    }
+
+    if (new Date(invite.expiresAt) <= new Date()) {
+      await PartnerInvite.updateOne({ _id: invite._id }, { $set: { status: 'expired' } });
+      return res.status(410).json({ message: inviteUnavailableMessage });
+    }
+
+    if (!invite.inviterId || invite.inviterId.partnerId) {
+      return res.status(409).json({ message: 'This invite is no longer available' });
+    }
+
+    res.json({
+      code: invite.code,
+      inviterName: invite.inviterId.name,
+      expiresAt: invite.expiresAt,
+    });
+  } catch (err) {
+    console.error('Preview invite error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route  POST /api/auth/invites/accept
+// @access Private
+router.post('/invites/accept', protect, inviteAcceptLimiter, inviteCodeRules, validate, async (req, res) => {
+  try {
+    const code = normalizeInviteCode(req.body.code);
+    const now = new Date();
+    const invite = await PartnerInvite.findOne({ code })
+      .populate('inviterId', 'name email partnerId relationshipStartDate');
+
+    if (!invite || invite.status !== 'pending') {
+      return res.status(404).json({ message: inviteUnavailableMessage });
+    }
+
+    if (invite.expiresAt <= now) {
+      await PartnerInvite.updateOne({ _id: invite._id }, { $set: { status: 'expired' } });
+      return res.status(410).json({ message: inviteUnavailableMessage });
+    }
+
+    const inviter = invite.inviterId;
+    if (!inviter) {
+      return res.status(404).json({ message: inviteUnavailableMessage });
+    }
+
+    if (inviter._id.equals(req.user._id)) {
+      return res.status(400).json({ message: "You can't accept your own invite code" });
+    }
+
+    const invitee = await User.findById(req.user._id);
+    if (!invitee) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    if (invitee.partnerId) {
+      return res.status(409).json({ message: 'You are already connected with a partner' });
+    }
+
+    const inviterFresh = await User.findById(inviter._id);
+    if (!inviterFresh || inviterFresh.partnerId) {
+      return res.status(409).json({ message: 'This invite is no longer available' });
+    }
+
+    const claimedInvite = await PartnerInvite.findOneAndUpdate(
+      { _id: invite._id, status: 'pending', acceptedBy: null, expiresAt: { $gt: now } },
+      { $set: { status: 'accepted', acceptedBy: invitee._id, acceptedAt: now } },
+      { new: true }
+    );
+
+    if (!claimedInvite) {
+      return res.status(409).json({ message: inviteUnavailableMessage });
+    }
+
+    const sharedStartDate = invitee.relationshipStartDate || inviterFresh.relationshipStartDate || null;
+    const inviteeUpdate = { partnerId: inviterFresh._id };
+    const inviterUpdate = { partnerId: invitee._id };
+    if (sharedStartDate) {
+      inviteeUpdate.relationshipStartDate = sharedStartDate;
+      inviterUpdate.relationshipStartDate = sharedStartDate;
+    }
+
+    const updatedInvitee = await User.findOneAndUpdate(
+      { _id: invitee._id, partnerId: null },
+      { $set: inviteeUpdate },
+      { new: true }
+    );
+
+    if (!updatedInvitee) {
+      await PartnerInvite.findByIdAndUpdate(claimedInvite._id, {
+        $set: { status: 'pending' },
+        $unset: { acceptedBy: '', acceptedAt: '' },
+      });
+      return res.status(409).json({ message: 'You are already connected with a partner' });
+    }
+
+    const updatedInviter = await User.findOneAndUpdate(
+      { _id: inviterFresh._id, partnerId: null },
+      { $set: inviterUpdate },
+      { new: true }
+    );
+
+    if (!updatedInviter) {
+      await User.findOneAndUpdate(
+        { _id: invitee._id, partnerId: inviterFresh._id },
+        { $set: { partnerId: null } }
+      );
+      await PartnerInvite.findByIdAndUpdate(claimedInvite._id, {
+        $set: { status: 'revoked', revokedAt: new Date() },
+      });
+      return res.status(409).json({ message: 'This invite is no longer available' });
+    }
+
+    await PartnerInvite.updateMany(
+      {
+        _id: { $ne: claimedInvite._id },
+        inviterId: { $in: [invitee._id, inviterFresh._id] },
+        status: 'pending',
+      },
+      { $set: { status: 'revoked', revokedAt: new Date() } }
+    );
+
+    res.json({
+      message: 'Partner linked successfully',
+      partnerId: updatedInviter._id,
+      partnerName: updatedInviter.name,
+      user: serializeUser(updatedInvitee),
+    });
+  } catch (err) {
+    console.error('Accept invite error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
 });
 
 // @route  POST /api/auth/link-partner
@@ -280,6 +484,8 @@ router.post('/link-partner', protect, linkPartnerRules, validate, async (req, re
 
     if (!partner) return res.status(404).json({ message: 'No user found with that email' });
     if (partner._id.equals(req.user._id)) return res.status(400).json({ message: "You can't link to yourself" });
+    if (req.user.partnerId) return res.status(409).json({ message: 'You are already connected with a partner' });
+    if (partner.partnerId) return res.status(409).json({ message: 'That user is already connected with a partner' });
 
     await User.findByIdAndUpdate(req.user._id, { partnerId: partner._id });
     await User.findByIdAndUpdate(partner._id, { partnerId: req.user._id });
