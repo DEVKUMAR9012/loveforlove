@@ -222,7 +222,10 @@ router.post(
       res.json(serializeUser(user, accessToken));
     } catch (error) {
       console.error('Social login error:', error);
-      res.status(401).json({ message: 'Invalid or expired social token' });
+      if (error.code && error.code.startsWith('auth/')) {
+        return res.status(401).json({ message: 'Invalid or expired social token' });
+      }
+      res.status(500).json({ message: 'Server error during social login. Please check backend logs.' });
     }
   }
 );
@@ -294,18 +297,28 @@ router.get('/me', protect, async (req, res) => {
 // @access Private
 router.post('/invites', protect, inviteCreateLimiter, async (req, res) => {
   try {
-    if (req.user.partnerId) {
+    const currentUserId = req.user?._id;
+    if (!currentUserId) {
+      return res.status(401).json({ message: 'Not authorized' });
+    }
+
+    const currentUser = await User.findById(currentUserId).select('partnerId');
+    if (!currentUser) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    if (currentUser.partnerId) {
       return res.status(409).json({ message: 'You are already connected with a partner' });
     }
 
     const now = new Date();
     await PartnerInvite.updateMany(
-      { inviterId: req.user._id, status: 'pending', expiresAt: { $lte: now } },
+      { inviterId: currentUserId, status: 'pending', expiresAt: { $lte: now } },
       { $set: { status: 'expired' } }
     );
 
     let invite = await PartnerInvite.findOne({
-      inviterId: req.user._id,
+      inviterId: currentUserId,
       status: 'pending',
       expiresAt: { $gt: now },
     }).sort({ createdAt: -1 });
@@ -314,7 +327,7 @@ router.post('/invites', protect, inviteCreateLimiter, async (req, res) => {
     if (!invite) {
       invite = await PartnerInvite.create({
         code: await generateUniqueInviteCode(),
-        inviterId: req.user._id,
+        inviterId: currentUserId,
         expiresAt: new Date(Date.now() + INVITE_EXPIRY_MS),
       });
       statusCode = 201;

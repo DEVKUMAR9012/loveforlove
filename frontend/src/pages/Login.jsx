@@ -177,14 +177,7 @@ function Login() {
           </motion.button>
         </form>
 
-        <p className="text-center mt-4 text-sm">
-          <Link
-            to={inviteCode ? `/invite?code=${inviteCode}` : '/invite'}
-            className="text-sky-600 font-semibold hover:underline"
-          >
-            Open invitation code page
-          </Link>
-        </p>
+        {/* Invitation link removed as requested */}
 
         <div className="mt-8 flex items-center justify-center gap-4">
           <div className="h-px bg-gray-200 flex-1"></div>

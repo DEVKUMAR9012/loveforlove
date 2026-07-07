@@ -39,7 +39,7 @@ function Navbar() {
     <nav className="fixed bottom-0 w-full md:relative md:w-64 h-20 md:h-screen glass z-50 flex md:flex-col justify-between items-center md:items-start p-4 shadow-lg border-t md:border-t-0 md:border-r border-white/40">
       
       <div className="hidden md:block w-full text-center mb-8 mt-4">
-        <h1 className="text-2xl font-bold text-blush-600 tracking-wide">arudev</h1>
+        <h1 className="text-2xl font-bold text-blush-600 tracking-wide">loveforlove</h1>
         <p className="text-xs text-sky-600 mt-1">Together Forever ✨</p>
       </div>
 

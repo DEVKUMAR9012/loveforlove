@@ -260,6 +260,10 @@ export function AuthProvider({ children }) {
     setUser(prev => ({ ...prev, relationshipStartDate: date }));
   };
 
+  const updateAvatarUrl = (url) => {
+    setUser(prev => ({ ...prev, avatarUrl: url }));
+  };
+
   return (
     <AuthContext.Provider value={{
       user,
@@ -268,6 +272,7 @@ export function AuthProvider({ children }) {
       register,
       logout,
       updateRelationshipDate,
+      updateAvatarUrl,
       signInWithSocial,
       createPartnerInvite,
       previewPartnerInvite,

@@ -39,14 +39,14 @@
 ### 1. Install backend dependencies
 
 ```powershell
-cd c:\arudev\backend
+cd c:\loveforlove\backend
 npm install
 ```
 
 ### 2. Install frontend dependencies
 
 ```powershell
-cd c:\arudev\frontend
+cd c:\loveforlove\frontend
 npm install
 ```
 

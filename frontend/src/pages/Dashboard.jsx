@@ -2,12 +2,14 @@ import { useAuth } from '../context/AuthContext';
 import { motion } from 'framer-motion';
 import { HiOutlineHeart, HiOutlineCalendar, HiOutlinePhotograph, HiOutlineCamera, HiOutlineMicrophone, HiOutlinePencilAlt, HiOutlineUserAdd } from 'react-icons/hi';
 import { useNavigate } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 
 function Dashboard() {
-  const { user, backendUrl } = useAuth();
+  const { user, backendUrl, updateAvatarUrl } = useAuth();
   const navigate = useNavigate();
   const [recentMemories, setRecentMemories] = useState([]);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     const fetchRecent = async () => {
@@ -27,6 +29,42 @@ function Dashboard() {
     };
     fetchRecent();
   }, [backendUrl]);
+
+  const handleAvatarClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleAvatarChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingAvatar(true);
+    try {
+      const token = localStorage.getItem('token');
+      const formData = new FormData();
+      formData.append('avatar', file);
+
+      const res = await fetch(`${backendUrl}/api/settings/avatar`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        updateAvatarUrl(data.avatarUrl);
+        alert('Profile picture updated!');
+      } else {
+        const errorData = await res.json().catch(() => ({}));
+        alert(`Failed to upload avatar: ${errorData.error || res.statusText}`);
+      }
+    } catch (err) {
+      alert(`Error uploading avatar: ${err.message}`);
+    } finally {
+      setUploadingAvatar(false);
+      e.target.value = null; // reset input
+    }
+  };
 
   const widgets = [
     { title: 'My Gallery', icon: HiOutlinePhotograph, path: '/gallery', color: 'text-blush-500', bg: 'from-blush-50 to-pink-50', desc: 'Photos & memories' },
@@ -59,12 +97,35 @@ function Dashboard() {
         <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blush-400 via-white to-sky-400" />
         {/* Avatar bubble */}
         <div className="flex items-center gap-4 mb-4">
-          <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blush-300 to-sky-300 flex items-center justify-center text-2xl font-bold text-white shadow-md select-none">
-            {user?.name ? user.name[0].toUpperCase() : '?'}
+          <input 
+            type="file" 
+            accept="image/*" 
+            className="hidden" 
+            ref={fileInputRef} 
+            onChange={handleAvatarChange} 
+          />
+          <div 
+            onClick={handleAvatarClick}
+            className="relative w-14 h-14 rounded-full bg-gradient-to-br from-blush-300 to-sky-300 flex items-center justify-center text-2xl font-bold text-white shadow-md select-none cursor-pointer group overflow-hidden border-2 border-white/50"
+          >
+            {user?.avatarUrl ? (
+              <img src={user.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+            ) : (
+              user?.name ? user.name[0].toUpperCase() : '?'
+            )}
+            
+            {uploadingAvatar ? (
+              <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                <div className="w-4 h-4 border-2 border-white/50 border-t-white rounded-full animate-spin" />
+              </div>
+            ) : (
+              <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                <HiOutlineCamera className="text-white text-xl" />
+              </div>
+            )}
           </div>
           <div>
-            <p className="text-sm text-gray-400 font-medium">{user?.email}</p>
-            <p className="text-xs text-gray-300">Member</p>
+            <p className="text-sm text-gray-500 font-medium">{user?.email}</p>
           </div>
         </div>
         <h1 className="text-3xl md:text-5xl font-bold text-gray-800 mb-3">

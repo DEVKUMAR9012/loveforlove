@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
@@ -38,10 +38,17 @@ function Invite() {
   }, [generatedInvite]);
 
   const updateCode = (value) => {
-    setCode(normalizeInviteCode(value));
+    const next = normalizeInviteCode(value);
+    setCode(next);
     setPreview(null);
     setMessage('');
     setError('');
+
+    // Debounced auto-preview when input reaches 8 chars
+    if (updateCode.debounce) clearTimeout(updateCode.debounce);
+    if (next.length === 8) {
+      updateCode.debounce = setTimeout(() => previewCode(next), 300);
+    }
   };
 
   const previewCode = async (nextCode = code) => {
@@ -179,27 +186,36 @@ function Invite() {
                   {busy === 'create' ? 'Creating...' : 'Create Invite Code'}
                 </button>
 
-                {generatedInvite && (
-                  <div className="rounded-2xl border border-blush-100 bg-white/70 p-4">
-                    <p className="text-xs font-semibold uppercase text-gray-400">Invitation code</p>
-                    <div className="mt-2 flex items-center justify-between gap-3">
-                      <code className="rounded-xl bg-gray-900 px-4 py-3 font-mono text-xl font-bold text-white">
-                        {generatedInvite.code}
-                      </code>
-                      <button
-                        type="button"
-                        onClick={handleCopy}
-                        className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-600 transition hover:text-blush-600"
-                        aria-label="Copy invite link"
-                      >
-                        <HiOutlineClipboardCopy className="text-xl" />
-                      </button>
-                    </div>
-                    {shareUrl && <p className="mt-3 break-all text-xs text-gray-400">{shareUrl}</p>}
-                    {generatedExpiry && <p className="mt-2 text-xs text-gray-400">Expires {generatedExpiry}</p>}
-                    {copied && <p className="mt-2 text-sm font-medium text-mint-700">Copied.</p>}
-                  </div>
-                )}
+                <AnimatePresence>
+                  {generatedInvite && (
+                    <motion.div
+                      layout
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -8 }}
+                      className="rounded-2xl border border-blush-100 bg-white/70 p-4"
+                      key={`generated-${generatedInvite.code}`}
+                    >
+                      <p className="text-xs font-semibold uppercase text-gray-400">Invitation code</p>
+                      <div className="mt-2 flex items-center justify-between gap-3">
+                        <code className="rounded-xl bg-gray-900 px-4 py-3 font-mono text-xl font-bold text-white">
+                          {generatedInvite.code}
+                        </code>
+                        <button
+                          type="button"
+                          onClick={handleCopy}
+                          className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-600 transition hover:text-blush-600"
+                          aria-label="Copy invite link"
+                        >
+                          <HiOutlineClipboardCopy className="text-xl" />
+                        </button>
+                      </div>
+                      {shareUrl && <p className="mt-3 break-all text-xs text-gray-400">{shareUrl}</p>}
+                      {generatedExpiry && <p className="mt-2 text-xs text-gray-400">Expires {generatedExpiry}</p>}
+                      {copied && <p className="mt-2 text-sm font-medium text-mint-700">Copied.</p>}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             ) : (
               <div className="space-y-4">
@@ -260,12 +276,21 @@ function Invite() {
                 </button>
               </div>
 
-              {preview && (
-                <div className="rounded-2xl border border-sky-100 bg-sky-50 p-4">
-                  <p className="text-sm font-semibold text-sky-800">Invite from {preview.inviterName}</p>
-                  {previewExpiry && <p className="mt-1 text-xs text-sky-600">Expires {previewExpiry}</p>}
-                </div>
-              )}
+              <AnimatePresence>
+                {preview && (
+                  <motion.div
+                    layout
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    className="rounded-2xl border border-sky-100 bg-sky-50 p-4"
+                    key={`preview-${preview.code}`}
+                  >
+                    <p className="text-sm font-semibold text-sky-800">Invite from {preview.inviterName}</p>
+                    {previewExpiry && <p className="mt-1 text-xs text-sky-600">Expires {previewExpiry}</p>}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </section>
         </motion.div>
