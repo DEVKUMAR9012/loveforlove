@@ -61,26 +61,7 @@ export function AuthProvider({ children }) {
     const bootstrap = async () => {
       let token = localStorage.getItem('token');
 
-      // Also check if we just returned from a Firebase redirect (Mobile auth)
-      try {
-        const redirectResult = await getRedirectResult(auth);
-        if (redirectResult?.user) {
-          const idToken = await redirectResult.user.getIdToken();
-          const socialRes = await fetch(`${API}/api/auth/social`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ token: idToken }),
-            credentials: 'include',
-          });
-          if (socialRes.ok) {
-            const data = await socialRes.json();
-            localStorage.setItem('token', data.token);
-            token = data.token; // Use this token for the rest of the flow
-          }
-        }
-      } catch (err) {
-        console.error("Firebase redirect error:", err);
-      }
+
 
       if (token) {
         // Try existing token
