@@ -121,8 +121,12 @@ function Invite() {
       textarea.style.opacity = '0';
       document.body.appendChild(textarea);
       textarea.select();
-      const copiedWithFallback = document.execCommand('copy');
-      document.body.removeChild(textarea);
+      let copiedWithFallback = false;
+      try {
+        copiedWithFallback = document.execCommand('copy');
+      } finally {
+        document.body.removeChild(textarea);
+      }
 
       if (!copiedWithFallback) {
         setError('Copy failed. Select the code and copy it manually.');
@@ -131,6 +135,7 @@ function Invite() {
       setCopied(true);
     }
 
+    setError('');
     clearTimeout(copiedTimerRef.current);
     copiedTimerRef.current = setTimeout(() => setCopied(false), 1600);
   };

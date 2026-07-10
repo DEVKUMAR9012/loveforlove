@@ -17,6 +17,7 @@ import AdminDashboard from './pages/AdminDashboard';
 import ReportPage from './pages/ReportPage';
 import { useAuth } from './context/AuthContext';
 import { Navigate } from 'react-router-dom';
+import WelcomeBanner from './components/WelcomeBanner';
 
 // ── Admin Guard ───────────────────────────────────────────────────────────
 const AdminRoute = ({ children }) => {
@@ -37,6 +38,7 @@ function App() {
     // Top-level boundary catches AuthProvider / Router crashes
     <ErrorBoundary>
       <AuthProvider>
+        <WelcomeBanner />
         <Router>
           <Routes>
             <Route
