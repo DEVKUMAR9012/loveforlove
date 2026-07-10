@@ -1,6 +1,6 @@
 // vibecheck-disable SECAI006
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import Login from './pages/Login';
 import Invite from './pages/Invite';
@@ -15,8 +15,6 @@ import Messages from './pages/Messages';
 import Settings from './pages/Settings';
 import AdminDashboard from './pages/AdminDashboard';
 import ReportPage from './pages/ReportPage';
-import { useAuth } from './context/AuthContext';
-import { Navigate } from 'react-router-dom';
 
 // ── Admin Guard ───────────────────────────────────────────────────────────
 const AdminRoute = ({ children }) => {
