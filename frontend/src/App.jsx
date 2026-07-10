@@ -14,6 +14,7 @@ import VoiceNotes from './pages/VoiceNotes';
 import Messages from './pages/Messages';
 import Settings from './pages/Settings';
 import AdminDashboard from './pages/AdminDashboard';
+import ReportPage from './pages/ReportPage';
 import { useAuth } from './context/AuthContext';
 import { Navigate } from 'react-router-dom';
 
@@ -63,6 +64,7 @@ function App() {
               <Route path="/messages" element={<Guarded><Messages /></Guarded>} />
               <Route path="/settings" element={<Guarded><Settings /></Guarded>} />
               <Route path="/admin"    element={<Guarded><AdminRoute><AdminDashboard /></AdminRoute></Guarded>} />
+              <Route path="/report"   element={<Guarded><ReportPage /></Guarded>} />
             </Route>
           </Routes>
         </Router>

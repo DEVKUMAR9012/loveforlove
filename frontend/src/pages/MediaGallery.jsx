@@ -1,4 +1,3 @@
-import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { HiOutlineCloudUpload, HiOutlineX, HiOutlinePhotograph, HiOutlineExclamationCircle } from 'react-icons/hi';
 
@@ -23,7 +22,6 @@ function MediaGallery() {
   const [uploadProgress, setUploadProgress] = useState({ done: 0, total: 0 });
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [activeImage, setActiveImage] = useState(null);
-  const [isFlipped, setIsFlipped] = useState(false);
   const [editingCaption, setEditingCaption] = useState('');
   const [captionSaving, setCaptionSaving] = useState(false);
   const [captionSaved, setCaptionSaved] = useState(false);
@@ -608,36 +606,7 @@ function MediaGallery() {
       {/* Film grain overlay — animated SVG noise, sits above the gradient,
           below all real content. Gives the dark bg a textured, lived-in
           paper feel instead of a flat digital black. */}
-      <svg
-        className="pointer-events-none absolute inset-0 w-full h-full"
-        style={{ mixBlendMode: 'overlay', opacity: 0.5, zIndex: 0 }}
-        aria-hidden="true"
-      >
-        <filter id="filmGrain">
-          <feTurbulence
-            type="fractalNoise"
-            baseFrequency="0.9"
-            numOctaves="2"
-            stitchTiles="stitch"
-            result="noise"
-          >
-            <animate
-              attributeName="baseFrequency"
-              values="0.9;0.95;0.9"
-              dur="0.6s"
-              repeatCount="indefinite"
-            />
-          </feTurbulence>
-          <feColorMatrix in="noise" type="saturate" values="0" />
-        </filter>
-        <rect width="100%" height="100%" filter="url(#filmGrain)" />
-      </svg>
-
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        className="relative z-10 max-w-6xl mx-auto px-6 py-12"
-      >
+      <div className="relative z-10 max-w-6xl mx-auto px-6 py-12">
         {/* Header */}
         <div className="flex flex-wrap justify-between items-end gap-6 mb-12">
           <div>
@@ -672,18 +641,12 @@ function MediaGallery() {
           <button
             onClick={() => fileInputRef.current.click()}
             disabled={isUploading}
-            className="flex items-center gap-2 px-6 py-3 font-medium rounded-xl transition-colors duration-200"
+            className="flex items-center gap-2 px-6 py-3 font-medium rounded-xl"
             style={{
               fontFamily: 'Inter, sans-serif',
               background: isUploading ? '#3A3340' : '#C9A876',
               color: isUploading ? '#9C8C9E' : '#1A1622',
               cursor: isUploading ? 'not-allowed' : 'pointer',
-            }}
-            onMouseEnter={(e) => {
-              if (!isUploading) e.currentTarget.style.background = '#DCB988';
-            }}
-            onMouseLeave={(e) => {
-              if (!isUploading) e.currentTarget.style.background = '#C9A876';
             }}
           >
             <HiOutlineCloudUpload className="text-xl" />
@@ -692,15 +655,11 @@ function MediaGallery() {
         </div>
 
         {/* Error banner */}
-        <AnimatePresence>
-          {loadError && (
-            <motion.div
-              initial={{ opacity: 0, y: -8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              className="flex items-center justify-between gap-4 mb-8 px-4 py-3 rounded-xl"
-              style={{ background: 'rgba(214, 92, 92, 0.1)', border: '1px solid rgba(214, 92, 92, 0.3)' }}
-            >
+        {loadError && (
+          <div
+            className="flex items-center justify-between gap-4 mb-8 px-4 py-3 rounded-xl"
+            style={{ background: 'rgba(214, 92, 92, 0.1)', border: '1px solid rgba(214, 92, 92, 0.3)' }}
+          >
               <div className="flex items-center gap-2">
                 <HiOutlineExclamationCircle style={{ color: '#E08A8A' }} className="text-lg shrink-0" />
                 <span style={{ color: '#E0B8B8', fontFamily: 'Inter, sans-serif' }} className="text-sm">
@@ -717,9 +676,8 @@ function MediaGallery() {
               >
                 Retry
               </button>
-            </motion.div>
+            </div>
           )}
-        </AnimatePresence>
 
         {/* Loading skeletons */}
         {isLoading && (
@@ -762,17 +720,12 @@ function MediaGallery() {
 
         {/* Gallery grid */}
         {!isLoading && images.length > 0 && (
-          <div className="columns-1 sm:columns-2 lg:columns-3 gap-8 [column-fill:_balance]">
-            {images.map((img, idx) => (
-              <motion.button
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {images.map((img) => (
+              <button
                 key={img.id}
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: Math.min(idx, 8) * 0.06 }}
-                whileHover={{ rotate: 0, scale: 1.02 }}
                 onClick={() => openLightbox(img)}
-                className="block w-full mb-8 break-inside-avoid text-left group relative"
-                style={{ rotate: `${img.rotation}deg`, transformOrigin: 'center' }}
+                className="block w-full text-left group relative"
               >
                 <div
                   className="p-3 pb-10 rounded-sm relative"
@@ -783,19 +736,11 @@ function MediaGallery() {
                       src={img.src}
                       alt={img.caption || 'A keepsake memory'}
                       loading="lazy"
-                      className="w-full h-auto object-cover transition-transform duration-500 group-hover:scale-105"
+                      className="w-full h-auto object-cover"
                     />
                   </div>
 
                   {/* Tape corners, appear on hover */}
-                  <span
-                    className="absolute -top-2 -left-2 w-8 h-5 opacity-0 group-hover:opacity-90 transition-opacity duration-300 rotate-[-25deg]"
-                    style={{ background: 'rgba(201, 168, 118, 0.55)' }}
-                  />
-                  <span
-                    className="absolute -top-2 -right-2 w-8 h-5 opacity-0 group-hover:opacity-90 transition-opacity duration-300 rotate-[25deg]"
-                    style={{ background: 'rgba(201, 168, 118, 0.55)' }}
-                  />
 
                   {/* Caption strip, like a handwritten note under a polaroid */}
                   <p
@@ -805,21 +750,17 @@ function MediaGallery() {
                     {formatDate(img.date)}
                   </p>
                 </div>
-              </motion.button>
+              </button>
             ))}
           </div>
         )}
 
         {/* Drag-over overlay */}
-        <AnimatePresence>
-          {isDraggingOver && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-40 flex items-center justify-center pointer-events-none"
-              style={{ background: 'rgba(13, 11, 20, 0.85)' }}
-            >
+        {isDraggingOver && (
+          <div
+            className="fixed inset-0 z-40 flex items-center justify-center pointer-events-none"
+            style={{ background: 'rgba(13, 11, 20, 0.85)' }}
+          >
               <div
                 className="px-10 py-8 rounded-2xl border-2 border-dashed flex flex-col items-center gap-3"
                 style={{ borderColor: '#C9A876' }}
@@ -829,142 +770,91 @@ function MediaGallery() {
                   Drop to keep these memories
                 </p>
               </div>
-            </motion.div>
+            </div>
           )}
-        </AnimatePresence>
 
         {/* Lightbox: flips like turning a photo over */}
-        <AnimatePresence>
-          {activeImage && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 overflow-y-auto"
-              style={{ background: 'rgba(7, 6, 11, 0.92)' }}
-              onClick={closeLightbox}
-            >
-              <div className="min-h-full flex items-center justify-center p-4 sm:p-6">
+        {activeImage && (
+          <div
+            className="fixed inset-0 z-50 overflow-y-auto"
+            style={{ background: 'rgba(7, 6, 11, 0.92)' }}
+            onClick={closeLightbox}
+          >
+            <div className="min-h-full flex items-center justify-center p-4 sm:p-6">
 
-                {/* Fixed close button — always in corner regardless of scroll */}
-                <button
-                  onClick={closeLightbox}
-                  aria-label="Close"
-                  className="fixed top-4 right-4 sm:top-6 sm:right-6 p-2 rounded-full z-50 transition-colors hover:bg-white/20"
-                  style={{ color: '#F4ECE3', background: 'rgba(255,255,255,0.08)' }}
-                >
-                  <HiOutlineX className="text-2xl" />
-                </button>
+              <button
+                onClick={closeLightbox}
+                aria-label="Close"
+                className="fixed top-4 right-4 sm:top-6 sm:right-6 p-2 rounded-full z-50 transition-colors hover:bg-white/20"
+                style={{ color: '#F4ECE3', background: 'rgba(255,255,255,0.08)' }}
+              >
+                <HiOutlineX className="text-2xl" />
+              </button>
 
-                {/* Spring pop-up — iOS feel */}
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.85, y: 20 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                  transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                  className="relative w-full max-w-md mx-auto"
-                  style={{ perspective: '1600px' }}
-                  onClick={(e) => e.stopPropagation()}
+              <div className="relative w-full max-w-md mx-auto" onClick={(e) => e.stopPropagation()}>
+                <div
+                  className="p-3 sm:p-4 rounded-sm"
+                  style={{
+                    background: '#F4ECE3',
+                    boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)',
+                  }}
                 >
-                  <motion.div
-                    className="relative w-full"
-                    style={{ transformStyle: 'preserve-3d' }}
-                    animate={{ rotateY: isFlipped ? 180 : 0 }}
-                    transition={{ duration: 0.6, type: 'spring', bounce: 0.2 }}
+                  <img
+                    src={activeImage.srcFull || activeImage.src}
+                    alt={activeImage.caption || 'A keepsake memory'}
+                    className="w-full object-contain rounded-[2px]"
+                    style={{ maxHeight: 'calc(100vh - 12rem)' }}
+                  />
+                </div>
+
+                <div
+                  className="mt-4 p-4 rounded-sm"
+                  style={{ background: '#EDE3D3', boxShadow: '0 20px 40px -12px rgba(0,0,0,0.4)' }}
+                >
+                  <p
+                    className="text-xs uppercase tracking-[0.2em] mb-4"
+                    style={{ color: '#A89678', fontFamily: 'Inter, sans-serif' }}
                   >
-                    {/* Front: the photo */}
-                    <div
-                      className="p-3 sm:p-4 rounded-sm flex flex-col"
-                      style={{
-                        background: '#F4ECE3',
-                        backfaceVisibility: 'hidden',
-                        boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)',
-                      }}
-                    >
-                      {/* maxHeight stops tall images from hiding the button below */}
-                      <img
-                        src={activeImage.srcFull || activeImage.src}
-                        alt={activeImage.caption || 'A keepsake memory'}
-                        className="w-full object-contain rounded-[2px]"
-                        style={{ maxHeight: 'calc(100vh - 12rem)' }}
-                      />
-                      {/* shrink-0 prevents this from being squished by a tall image */}
-                      <button
-                        onClick={() => setIsFlipped(true)}
-                        className="w-full mt-3 py-2 text-sm rounded-md shrink-0 font-medium transition-colors hover:bg-black/5"
-                        style={{ color: '#6B5B73', fontFamily: 'Inter, sans-serif' }}
-                      >
-                        Turn over →
-                      </button>
-                    </div>
+                    {formatDate(activeImage.date)}
+                  </p>
 
-                    {/* Back: editable caption + date */}
-                    <div
-                      className="absolute inset-0 p-6 sm:p-8 rounded-sm flex flex-col justify-between"
-                      style={{
-                        background: '#EDE3D3',
-                        backfaceVisibility: 'hidden',
-                        transform: 'rotateY(180deg)',
-                        boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)',
-                      }}
-                    >
-                      <div className="flex flex-col flex-1 h-full">
-                        <p
-                          className="text-xs uppercase tracking-[0.2em] mb-4"
-                          style={{ color: '#A89678', fontFamily: 'Inter, sans-serif' }}
-                        >
-                          {formatDate(activeImage.date)}
-                        </p>
+                  <textarea
+                    value={editingCaption}
+                    onChange={(e) => { setEditingCaption(e.target.value); setCaptionSaved(false); }}
+                    placeholder="Write something about this memory..."
+                    rows={4}
+                    className="w-full resize-none bg-transparent focus:outline-none"
+                    style={{
+                      color: '#3A332E',
+                      fontFamily: "'Fraunces', serif",
+                      fontStyle: 'italic',
+                      fontSize: '1.1rem',
+                      lineHeight: '1.7',
+                      borderBottom: '1px dashed #C9A876',
+                      paddingBottom: '8px',
+                    }}
+                  />
 
-                        <textarea
-                          value={editingCaption}
-                          onChange={(e) => { setEditingCaption(e.target.value); setCaptionSaved(false); }}
-                          placeholder="Write something about this memory..."
-                          rows={4}
-                          className="flex-1 w-full resize-none bg-transparent focus:outline-none"
-                          style={{
-                            color: '#3A332E',
-                            fontFamily: "'Fraunces', serif",
-                            fontStyle: 'italic',
-                            fontSize: '1.1rem',
-                            lineHeight: '1.7',
-                            borderBottom: '1px dashed #C9A876',
-                            paddingBottom: '8px',
-                          }}
-                        />
-
-                        <button
-                          onClick={saveCaption}
-                          disabled={captionSaving}
-                          className="mt-4 self-end px-5 py-2 rounded-lg text-sm font-medium transition-all"
-                          style={{
-                            background: captionSaved ? '#7DAF82' : '#C9A876',
-                            color: '#1A1622',
-                            fontFamily: 'Inter, sans-serif',
-                            opacity: captionSaving ? 0.6 : 1,
-                            cursor: captionSaving ? 'not-allowed' : 'pointer',
-                          }}
-                        >
-                          {captionSaving ? 'Saving...' : captionSaved ? '✓ Saved!' : 'Save caption'}
-                        </button>
-                      </div>
-
-                      <button
-                        onClick={() => setIsFlipped(false)}
-                        className="self-start text-sm mt-4 font-medium transition-colors hover:text-black"
-                        style={{ color: '#8A7960', fontFamily: 'Inter, sans-serif' }}
-                      >
-                        ← Back to photo
-                      </button>
-                    </div>
-
-                  </motion.div>
-                </motion.div>
+                  <button
+                    onClick={saveCaption}
+                    disabled={captionSaving}
+                    className="mt-4 w-full px-5 py-2 rounded-lg text-sm font-medium"
+                    style={{
+                      background: captionSaved ? '#7DAF82' : '#C9A876',
+                      color: '#1A1622',
+                      fontFamily: 'Inter, sans-serif',
+                      opacity: captionSaving ? 0.6 : 1,
+                      cursor: captionSaving ? 'not-allowed' : 'pointer',
+                    }}
+                  >
+                    {captionSaving ? 'Saving...' : captionSaved ? '✓ Saved!' : 'Save caption'}
+                  </button>
+                </div>
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </motion.div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

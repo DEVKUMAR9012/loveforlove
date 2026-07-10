@@ -1,6 +1,6 @@
 import { useAuth } from '../context/AuthContext';
 import { motion } from 'framer-motion';
-import { HiOutlineHeart, HiOutlineCalendar, HiOutlinePhotograph, HiOutlineCamera, HiOutlineMicrophone, HiOutlinePencilAlt, HiOutlineUserAdd } from 'react-icons/hi';
+import { HiOutlineHeart, HiOutlineCalendar, HiOutlinePhotograph, HiOutlineCamera, HiOutlineMicrophone, HiOutlinePencilAlt, HiOutlineUserAdd, HiOutlineExclamationCircle } from 'react-icons/hi';
 import { useNavigate } from 'react-router-dom';
 import { useEffect, useState, useRef } from 'react';
 
@@ -132,7 +132,7 @@ function Dashboard() {
           {greetingEmoji()} Hello, <span className="text-blush-500">{firstName}</span>!
         </h1>
         <p className="text-gray-500 text-lg max-w-xl">
-          Welcome to your personal space. Here are all your memories, moods, and moments.
+          Welcome
         </p>
       </div>
 
@@ -216,6 +216,20 @@ function Dashboard() {
           </div>
         )}
       </motion.div>
+      {/* Floating Report Button */}
+      <motion.button
+        id="floating-report-btn"
+        onClick={() => navigate('/report')}
+        whileHover={{ scale: 1.12 }}
+        whileTap={{ scale: 0.92 }}
+        initial={{ opacity: 0, scale: 0 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ delay: 0.8, type: 'spring', stiffness: 200 }}
+        title="Report an issue"
+        className="fixed bottom-24 right-5 z-50 w-14 h-14 rounded-full bg-gradient-to-br from-blush-400 to-sky-400 shadow-lg flex items-center justify-center text-white hover:shadow-xl transition-shadow group"
+      >
+        <HiOutlineExclamationCircle className="text-2xl group-hover:rotate-12 transition-transform" />
+      </motion.button>
     </motion.div>
   );
 }

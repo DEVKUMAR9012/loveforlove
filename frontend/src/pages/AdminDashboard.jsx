@@ -2,12 +2,13 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
-import { HiOutlineUsers, HiOutlineHeart, HiOutlineChatAlt2, HiOutlineTrash } from 'react-icons/hi';
+import { HiOutlineUsers, HiOutlineHeart, HiOutlineChatAlt2, HiOutlineTrash, HiOutlineExclamationCircle, HiOutlineCheckCircle } from 'react-icons/hi';
 
 function AdminDashboard() {
   const { backendUrl } = useAuth();
   const [stats, setStats] = useState(null);
   const [users, setUsers] = useState([]);
+  const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -16,13 +17,15 @@ function AdminDashboard() {
       try {
         const headers = { Authorization: `Bearer ${localStorage.getItem('token')}` };
         
-        const [statsRes, usersRes] = await Promise.all([
+        const [statsRes, usersRes, reportsRes] = await Promise.all([
           fetch(`${backendUrl}/api/admin/stats`, { headers }),
-          fetch(`${backendUrl}/api/admin/users`, { headers })
+          fetch(`${backendUrl}/api/admin/users`, { headers }),
+          fetch(`${backendUrl}/api/reports`, { headers }),
         ]);
 
         if (statsRes.ok) setStats(await statsRes.json());
         if (usersRes.ok) setUsers(await usersRes.json());
+        if (reportsRes.ok) setReports(await reportsRes.json());
       } catch (err) {
         console.error('Error fetching admin data', err);
         setError(err.message);
@@ -128,6 +131,64 @@ function AdminDashboard() {
             </tbody>
           </table>
         </div>
+      </div>
+      {/* Reports Section */}
+      <div className="glass rounded-[2rem] p-6 shadow-sm mt-8">
+        <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+          <HiOutlineExclamationCircle className="text-blush-500" /> User Reports
+        </h2>
+        {reports.length === 0 ? (
+          <div className="text-center py-10 text-gray-300">
+            <HiOutlineCheckCircle className="text-5xl mx-auto mb-3" />
+            <p className="font-medium">No reports yet — all clear! 🎉</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {reports.map((report) => {
+              const statusColors = {
+                open: 'bg-red-100 text-red-600',
+                'in-review': 'bg-amber-100 text-amber-600',
+                resolved: 'bg-green-100 text-green-600',
+              };
+              return (
+                <div key={report._id} className="p-4 rounded-2xl bg-white/60 border border-gray-100 flex flex-col sm:flex-row sm:items-start gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <span className={`px-2 py-0.5 text-xs rounded-full font-semibold ${statusColors[report.status] || statusColors.open}`}>
+                        {report.status}
+                      </span>
+                      <span className="px-2 py-0.5 text-xs rounded-full bg-gray-100 text-gray-500 font-medium capitalize">
+                        {report.category}
+                      </span>
+                    </div>
+                    <p className="font-semibold text-gray-800 truncate">{report.title}</p>
+                    <p className="text-xs text-gray-400 mt-0.5 line-clamp-2">{report.description}</p>
+                    <p className="text-xs text-gray-300 mt-1">
+                      {report.userEmail} · {new Date(report.createdAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <select
+                    value={report.status}
+                    onChange={async (e) => {
+                      const newStatus = e.target.value;
+                      const res = await fetch(`${backendUrl}/api/reports/${report._id}/status`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
+                        body: JSON.stringify({ status: newStatus }),
+                      });
+                      if (res.ok) setReports((prev) => prev.map((r) => r._id === report._id ? { ...r, status: newStatus } : r));
+                    }}
+                    className="text-xs px-3 py-1.5 rounded-xl border border-gray-100 bg-white text-gray-600 focus:outline-none focus:ring-2 focus:ring-blush-200 cursor-pointer"
+                  >
+                    <option value="open">Open</option>
+                    <option value="in-review">In Review</option>
+                    <option value="resolved">Resolved</option>
+                  </select>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </motion.div>
   );
