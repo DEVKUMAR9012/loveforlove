@@ -17,7 +17,6 @@ import AdminDashboard from './pages/AdminDashboard';
 import ReportPage from './pages/ReportPage';
 import { useAuth } from './context/AuthContext';
 import { Navigate } from 'react-router-dom';
-import WelcomeBanner from './components/WelcomeBanner';
 
 // ── Admin Guard ───────────────────────────────────────────────────────────
 const AdminRoute = ({ children }) => {
@@ -33,18 +32,11 @@ const Guarded = ({ children }) => (
   <ErrorBoundary>{children}</ErrorBoundary>
 );
 
-// Reads user from context so WelcomeBanner knows who is logged in
-const BannerWrapper = () => {
-  const { user } = useAuth();
-  return <WelcomeBanner user={user} />;
-};
-
 function App() {
   return (
     // Top-level boundary catches AuthProvider / Router crashes
     <ErrorBoundary>
       <AuthProvider>
-        <BannerWrapper />
         <Router>
           <Routes>
             <Route

@@ -73,7 +73,14 @@ export default function WelcomeBanner({ user }) {
 
     const timer = setTimeout(() => {
       setVisible(true);
-    }, 8000);
+      // Play SUIII sound effect
+      try {
+        const audio = new Audio('https://www.myinstants.com/media/sounds/cristiano-ronaldo-suiii.mp3');
+        audio.play().catch(e => console.log('Audio play prevented by browser:', e));
+      } catch (err) {
+        console.error('Audio error:', err);
+      }
+    }, 5000);
 
     return () => clearTimeout(timer);
   }, [user]);
@@ -122,10 +129,10 @@ export default function WelcomeBanner({ user }) {
           aria-labelledby="banner-heading"
         >
           <motion.div
-            initial={{ opacity: 0, scale: 0.88, y: 40 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.92, y: 20 }}
-            transition={{ type: 'spring', stiffness: 260, damping: 22 }}
+            initial={{ opacity: 0, scale: 0.2, rotate: -180, y: 100 }}
+            animate={{ opacity: 1, scale: 1, rotate: 0, y: 0 }}
+            exit={{ opacity: 0, scale: 0.5, rotate: 90, y: 50 }}
+            transition={{ type: 'spring', stiffness: 200, damping: 20 }}
             onClick={(e) => e.stopPropagation()}
             className="relative w-full max-w-lg overflow-hidden"
             style={{
