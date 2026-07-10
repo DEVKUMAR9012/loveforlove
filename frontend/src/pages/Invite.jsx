@@ -31,6 +31,9 @@ function Invite() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
+  const previewTimerRef = useRef(null);
+  const copiedTimerRef = useRef(null);
+  const navigateTimerRef = useRef(null);
 
   const shareUrl = useMemo(() => {
     if (!generatedInvite?.code || typeof window === 'undefined') return '';
@@ -44,10 +47,9 @@ function Invite() {
     setMessage('');
     setError('');
 
-    // Debounced auto-preview when input reaches 8 chars
-    if (updateCode.debounce) clearTimeout(updateCode.debounce);
+    clearTimeout(previewTimerRef.current);
     if (next.length === 8) {
-      updateCode.debounce = setTimeout(() => previewCode(next), 300);
+      previewTimerRef.current = setTimeout(() => previewCode(next), 300);
     }
   };
 
@@ -83,6 +85,12 @@ function Invite() {
     }
   }, []);
 
+  useEffect(() => () => {
+    clearTimeout(previewTimerRef.current);
+    clearTimeout(copiedTimerRef.current);
+    clearTimeout(navigateTimerRef.current);
+  }, []);
+
   const handleCreateInvite = async () => {
     setBusy('create');
     setError('');
@@ -100,13 +108,31 @@ function Invite() {
 
   const handleCopy = async () => {
     if (!shareUrl && !generatedInvite?.code) return;
+    const text = shareUrl || generatedInvite.code;
     try {
-      await navigator.clipboard.writeText(shareUrl || generatedInvite.code);
+      if (!navigator.clipboard?.writeText) throw new Error('Clipboard API unavailable');
+      await navigator.clipboard.writeText(text);
       setCopied(true);
-      setTimeout(() => setCopied(false), 1600);
     } catch {
-      setError('Copy failed. Select the code and copy it manually.');
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.setAttribute('readonly', '');
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      const copiedWithFallback = document.execCommand('copy');
+      document.body.removeChild(textarea);
+
+      if (!copiedWithFallback) {
+        setError('Copy failed. Select the code and copy it manually.');
+        return;
+      }
+      setCopied(true);
     }
+
+    clearTimeout(copiedTimerRef.current);
+    copiedTimerRef.current = setTimeout(() => setCopied(false), 1600);
   };
 
   const handleAcceptInvite = async () => {
@@ -129,7 +155,8 @@ function Invite() {
       await acceptPartnerInvite(normalizedCode);
       sessionStorage.removeItem('pendingInviteCode');
       setMessage('Partner connected.');
-      setTimeout(() => navigate('/'), 700);
+      clearTimeout(navigateTimerRef.current);
+      navigateTimerRef.current = setTimeout(() => navigate('/'), 700);
     } catch (err) {
       setError(err.message);
     } finally {

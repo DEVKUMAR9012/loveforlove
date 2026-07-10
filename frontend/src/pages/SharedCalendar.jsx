@@ -214,15 +214,22 @@ function SharedCalendar() {
     try {
       const token = localStorage.getItem('token');
       const headers = { Authorization: `Bearer ${token}` };
-      const [eventsRes, memoriesRes] = await Promise.all([
+      const [eventsResult, memoriesResult] = await Promise.allSettled([
         fetch(`${backendUrl}/api/calendar`, { headers }),
         fetch(`${backendUrl}/api/memories`, { headers }),
       ]);
 
+      if (eventsResult.status !== 'fulfilled') throw eventsResult.reason;
+      const eventsRes = eventsResult.value;
       if (!eventsRes.ok) throw new Error(`Calendar responded ${eventsRes.status}`);
       const eventData = await eventsRes.json();
       setEvents(eventData);
 
+      if (memoriesResult.status !== 'fulfilled') {
+        console.warn('Failed to load calendar memories:', memoriesResult.reason);
+        return;
+      }
+      const memoriesRes = memoriesResult.value;
       if (memoriesRes.ok) {
         const memoryData = await memoriesRes.json();
         setMemories(memoryData.filter((memory) => memory.imageUrl));

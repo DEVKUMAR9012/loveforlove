@@ -6,6 +6,8 @@ import { FcGoogle } from 'react-icons/fc';
 import { FaInstagram, FaFacebook } from 'react-icons/fa';
 
 const normalizeInviteCode = (value) => String(value || '').toUpperCase().replace(/[\s-]/g, '');
+const isAlreadyConnectedInviteError = (error) =>
+  String(error?.message || '').toLowerCase().includes('already connected');
 
 function Login() {
   const [searchParams] = useSearchParams();
@@ -31,8 +33,18 @@ function Login() {
   const acceptInviteIfPresent = async () => {
     const normalizedCode = normalizeInviteCode(inviteCode);
     if (!normalizedCode) return;
-    await acceptPartnerInvite(normalizedCode);
-    sessionStorage.removeItem('pendingInviteCode');
+    if (user?.partnerId) {
+      sessionStorage.removeItem('pendingInviteCode');
+      return;
+    }
+
+    try {
+      await acceptPartnerInvite(normalizedCode);
+      sessionStorage.removeItem('pendingInviteCode');
+    } catch (err) {
+      if (!isAlreadyConnectedInviteError(err)) throw err;
+      sessionStorage.removeItem('pendingInviteCode');
+    }
   };
 
   const handleSocialAuth = async (provider) => {

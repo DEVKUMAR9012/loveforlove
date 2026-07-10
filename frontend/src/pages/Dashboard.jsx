@@ -9,6 +9,7 @@ function Dashboard() {
   const navigate = useNavigate();
   const [recentMemories, setRecentMemories] = useState([]);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [avatarNotice, setAvatarNotice] = useState(null);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -39,6 +40,7 @@ function Dashboard() {
     if (!file) return;
 
     setUploadingAvatar(true);
+    setAvatarNotice(null);
     try {
       const token = localStorage.getItem('token');
       const formData = new FormData();
@@ -53,13 +55,13 @@ function Dashboard() {
       if (res.ok) {
         const data = await res.json();
         updateAvatarUrl(data.avatarUrl);
-        alert('Profile picture updated!');
+        setAvatarNotice({ type: 'success', text: 'Profile picture updated.' });
       } else {
         const errorData = await res.json().catch(() => ({}));
-        alert(`Failed to upload avatar: ${errorData.error || res.statusText}`);
+        setAvatarNotice({ type: 'error', text: `Failed to upload avatar: ${errorData.error || res.statusText}` });
       }
     } catch (err) {
-      alert(`Error uploading avatar: ${err.message}`);
+      setAvatarNotice({ type: 'error', text: `Error uploading avatar: ${err.message}` });
     } finally {
       setUploadingAvatar(false);
       e.target.value = null; // reset input
@@ -128,6 +130,15 @@ function Dashboard() {
             <p className="text-sm text-gray-500 font-medium">{user?.email}</p>
           </div>
         </div>
+        {avatarNotice && (
+          <div className={`mb-4 rounded-2xl px-4 py-3 text-sm font-medium ${
+            avatarNotice.type === 'error'
+              ? 'bg-red-50 text-red-600'
+              : 'bg-mint-50 text-mint-700'
+          }`}>
+            {avatarNotice.text}
+          </div>
+        )}
         <h1 className="text-3xl md:text-5xl font-bold text-gray-800 mb-3">
           {greetingEmoji()} Hello, <span className="text-blush-500">{firstName}</span>!
         </h1>
@@ -140,7 +151,7 @@ function Dashboard() {
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
         {widgets.map((widget, idx) => (
           <motion.div
-            key={idx}
+            key={widget.path}
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.15 + idx * 0.07 }}

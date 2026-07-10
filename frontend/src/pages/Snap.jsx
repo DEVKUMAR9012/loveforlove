@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  HiOutlineBell,
   HiOutlineCamera,
   HiOutlineDownload,
   HiOutlineMail,
@@ -102,6 +101,7 @@ function Snap() {
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
   const fileInputRef = useRef(null);
+  const toastTimerRef = useRef(null);
   const [permissionState, setPermissionState] = useState('idle');
   const [facingMode, setFacingMode] = useState('user');
   const [snaps, setSnaps] = useState([]);
@@ -132,6 +132,7 @@ function Snap() {
     try {
       setSnaps(await readLocalSnaps());
     } catch (err) {
+      console.error('Failed to load local snaps:', err);
       setError('Local snap storage is unavailable in this browser.');
     }
   }, []);
@@ -159,24 +160,35 @@ function Snap() {
     const timer = setInterval(loadInbox, 30000);
     return () => {
       clearInterval(timer);
+      clearTimeout(toastTimerRef.current);
       stopCamera();
     };
   }, [loadInbox, loadSnaps, stopCamera]);
 
-  useEffect(() => {
-    // Wait for the user to explicitly allow via the custom prompt
-  }, [permissionState]);
-
   // Global Notification Bar Effect
   const [showToast, setShowToast] = useState(false);
+
+  const requestNotificationPermission = useCallback(async () => {
+    if (!('Notification' in window) || Notification.permission !== 'default') return;
+    try {
+      await Notification.requestPermission();
+    } catch {
+      // Some browsers reject notification prompts outside trusted user gestures.
+    }
+  }, []);
   
   const pushNotice = useCallback((message) => {
     setNotice(message);
     setShowToast(true);
-    setTimeout(() => setShowToast(false), 3000);
+    clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => setShowToast(false), 3000);
 
     if ('Notification' in window && Notification.permission === 'granted') {
-      new Notification('loveforlove', { body: message });
+      try {
+        new Notification('loveforlove', { body: message });
+      } catch {
+        // The in-app toast has already shown the message.
+      }
     }
   }, []);
 
@@ -189,6 +201,7 @@ function Snap() {
 
     try {
       setPermissionState('requesting');
+      await requestNotificationPermission();
       pushNotice('Opening camera');
       stopCamera();
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -290,9 +303,13 @@ function Snap() {
   };
 
   const deleteSnap = async (id) => {
-    await deleteLocalSnap(id);
-    setSnaps((prev) => prev.filter((snap) => snap.id !== id));
-    pushNotice('Snap deleted');
+    try {
+      await deleteLocalSnap(id);
+      setSnaps((prev) => prev.filter((snap) => snap.id !== id));
+      pushNotice('Snap deleted');
+    } catch {
+      setError('Could not delete this snap from local storage.');
+    }
   };
 
   const shareSnap = async (snap) => {

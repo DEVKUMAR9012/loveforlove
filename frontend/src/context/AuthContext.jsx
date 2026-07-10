@@ -142,39 +142,32 @@ export function AuthProvider({ children }) {
     else if (providerName === 'instagram') provider = instagramProvider;
     else throw new Error('Unknown provider');
 
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-
     try {
-      if (isMobile) {
-        // On mobile, use redirect to avoid popup blockers and "popup closed" errors
-        await signInWithRedirect(auth, provider);
-        return; // Execution stops here, page will redirect
-      }
-
-      // 1. Sign in with Firebase popup (Desktop)
+      // Use popup for all devices — works on mobile & desktop
       const result = await signInWithPopup(auth, provider);
       const idToken = await result.user.getIdToken();
 
-      // 2. Send the Firebase token to our custom backend
+      // Send the Firebase token to our custom backend
       const res = await fetch(`${API}/api/auth/social`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token: idToken }),
         credentials: 'include',
       });
-      
+
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Social login failed');
 
-      // 3. Set the custom session from our backend
       localStorage.setItem('token', data.token);
       setUser(serializeAuthUser(data));
       scheduleRefresh();
     } catch (err) {
-      console.error("Social login error:", err);
-      // Firebase throws errors with a code property
-      if (err.code === 'auth/popup-closed-by-user') {
-         throw new Error('Sign in popup was closed.');
+      console.error('Social login error:', err);
+      if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') {
+        throw new Error('Sign in was cancelled. Please try again.');
+      }
+      if (err.code === 'auth/popup-blocked') {
+        throw new Error('Popup was blocked by browser. Please allow popups for this site.');
       }
       throw new Error(err.message || 'Social login failed');
     }

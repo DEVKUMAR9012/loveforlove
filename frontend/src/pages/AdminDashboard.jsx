@@ -11,6 +11,8 @@ function AdminDashboard() {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [reportError, setReportError] = useState('');
+  const [updatingReportIds, setUpdatingReportIds] = useState(new Set());
 
   useEffect(() => {
     const fetchAdminData = async () => {
@@ -48,6 +50,41 @@ function AdminDashboard() {
       }
     } catch (err) {
       alert('Failed to delete user');
+    }
+  };
+
+  const handleReportStatusChange = async (reportId, newStatus) => {
+    const previousStatus = reports.find((report) => report._id === reportId)?.status;
+    setReportError('');
+    setUpdatingReportIds((prev) => new Set(prev).add(reportId));
+    setReports((prev) =>
+      prev.map((report) => (report._id === reportId ? { ...report, status: newStatus } : report))
+    );
+
+    try {
+      const res = await fetch(`${backendUrl}/api/reports/${reportId}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || data.message || 'Could not update report status');
+    } catch (err) {
+      if (previousStatus) {
+        setReports((prev) =>
+          prev.map((report) => (report._id === reportId ? { ...report, status: previousStatus } : report))
+        );
+      }
+      setReportError(err.message || 'Could not update report status');
+    } finally {
+      setUpdatingReportIds((prev) => {
+        const next = new Set(prev);
+        next.delete(reportId);
+        return next;
+      });
     }
   };
 
@@ -137,6 +174,11 @@ function AdminDashboard() {
         <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
           <HiOutlineExclamationCircle className="text-blush-500" /> User Reports
         </h2>
+        {reportError && (
+          <div className="mb-4 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
+            {reportError}
+          </div>
+        )}
         {reports.length === 0 ? (
           <div className="text-center py-10 text-gray-300">
             <HiOutlineCheckCircle className="text-5xl mx-auto mb-3" />
@@ -169,16 +211,9 @@ function AdminDashboard() {
                   </div>
                   <select
                     value={report.status}
-                    onChange={async (e) => {
-                      const newStatus = e.target.value;
-                      const res = await fetch(`${backendUrl}/api/reports/${report._id}/status`, {
-                        method: 'PATCH',
-                        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
-                        body: JSON.stringify({ status: newStatus }),
-                      });
-                      if (res.ok) setReports((prev) => prev.map((r) => r._id === report._id ? { ...r, status: newStatus } : r));
-                    }}
-                    className="text-xs px-3 py-1.5 rounded-xl border border-gray-100 bg-white text-gray-600 focus:outline-none focus:ring-2 focus:ring-blush-200 cursor-pointer"
+                    onChange={(e) => handleReportStatusChange(report._id, e.target.value)}
+                    disabled={updatingReportIds.has(report._id)}
+                    className="text-xs px-3 py-1.5 rounded-xl border border-gray-100 bg-white text-gray-600 focus:outline-none focus:ring-2 focus:ring-blush-200 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <option value="open">Open</option>
                     <option value="in-review">In Review</option>

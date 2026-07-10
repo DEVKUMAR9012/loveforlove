@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   HiOutlineExclamationCircle,
   HiOutlineFire,
@@ -132,7 +132,7 @@ function MoodTracker() {
 
   const myMoodObj      = getMood(myMood);
   const partnerMoodObj = getMood(partnerMood);
-  const ambientSoft    = myMoodObj?.soft || null;
+  const ambientSoft    = myMoodObj?.soft || 'transparent';
   const ambientColor   = myMoodObj?.color || null;
 
   return (

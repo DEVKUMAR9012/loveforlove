@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -33,6 +33,12 @@ function timeLabel(dateStr) {
   return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
 }
 
+function getId(value) {
+  if (!value) return '';
+  if (typeof value === 'object') return String(value._id || value.id || '');
+  return String(value);
+}
+
 export default function Messages() {
   const { user } = useAuth();
   const [messages, setMessages] = useState([]);
@@ -49,7 +55,15 @@ export default function Messages() {
   const bottomRef = useRef(null);
   const fileInputRef = useRef(null);
   const pollingRef = useRef(null);
+  const pendingFilesRef = useRef([]);
   const token = localStorage.getItem('token');
+
+  const clearPendingFiles = useCallback(() => {
+    setPendingFiles((files) => {
+      files.forEach(({ preview }) => URL.revokeObjectURL(preview));
+      return [];
+    });
+  }, []);
 
   const fetchMessages = async () => {
     try {
@@ -67,6 +81,14 @@ export default function Messages() {
     fetchMessages();
     pollingRef.current = setInterval(fetchMessages, 4000);
     return () => clearInterval(pollingRef.current);
+  }, []);
+
+  useEffect(() => {
+    pendingFilesRef.current = pendingFiles;
+  }, [pendingFiles]);
+
+  useEffect(() => () => {
+    pendingFilesRef.current.forEach(({ preview }) => URL.revokeObjectURL(preview));
   }, []);
 
   useEffect(() => {
@@ -99,6 +121,7 @@ export default function Messages() {
   const handleFileSelect = (e) => {
     const files = Array.from(e.target.files);
     if (!files.length) return;
+    clearPendingFiles();
     const withPreviews = files.map((f) => ({ file: f, preview: URL.createObjectURL(f) }));
     setPendingFiles(withPreviews);
     setShowCaption(true);
@@ -114,7 +137,7 @@ export default function Messages() {
     for (let i = 0; i < pendingFiles.length; i++) {
       const formData = new FormData();
       formData.append('image', pendingFiles[i].file);
-      if (caption.trim() && i === 0) formData.append('caption', caption.trim());
+      if (caption.trim()) formData.append('caption', caption.trim());
       try {
         const res = await fetch(`${API_BASE}/api/messages/upload`, {
           method: 'POST',
@@ -129,7 +152,7 @@ export default function Messages() {
       setImgUploadProgress({ done: i + 1, total: pendingFiles.length });
     }
 
-    setPendingFiles([]);
+    clearPendingFiles();
     setCaption('');
     setUploadingImages(false);
     setImgUploadProgress({ done: 0, total: 0 });
@@ -143,8 +166,7 @@ export default function Messages() {
     setMessages((prev) => prev.filter((m) => m._id !== id));
   };
 
-  // All messages fetched belong to the current user (filtered by userId on backend)
-  const isMe = (_msg) => true;
+  const isMe = (msg) => getId(msg.userId) === getId(user?._id);
 
   return (
     <div className="flex flex-col h-full max-w-2xl mx-auto">
@@ -254,7 +276,11 @@ export default function Messages() {
                       className="w-full h-28 object-cover rounded-2xl"
                     />
                     <button
-                      onClick={() => setPendingFiles((prev) => prev.filter((_, i) => i !== idx))}
+                      onClick={() => setPendingFiles((prev) => {
+                        const removed = prev[idx];
+                        if (removed) URL.revokeObjectURL(removed.preview);
+                        return prev.filter((_, i) => i !== idx);
+                      })}
                       className="absolute top-1 right-1 w-5 h-5 bg-black/60 text-white rounded-full text-xs opacity-0 group-hover:opacity-100 transition flex items-center justify-center"
                     >
                       ✕
@@ -265,14 +291,14 @@ export default function Messages() {
 
               <input
                 type="text"
-                placeholder="Add a caption to the first image... (optional)"
+                placeholder="Add a caption to these images... (optional)"
                 value={caption}
                 onChange={(e) => setCaption(e.target.value)}
                 className="w-full px-4 py-2 rounded-2xl border border-blush-200 focus:outline-none focus:ring-2 focus:ring-blush-300 mb-3 text-sm"
               />
               <div className="flex gap-2">
                 <button
-                  onClick={() => { setShowCaption(false); setPendingFiles([]); setCaption(''); }}
+                  onClick={() => { setShowCaption(false); clearPendingFiles(); setCaption(''); }}
                   className="flex-1 py-2 rounded-2xl border border-gray-200 text-gray-500 text-sm hover:bg-gray-50 transition"
                 >
                   Cancel

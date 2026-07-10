@@ -72,6 +72,10 @@ export default function VoiceNotes() {
   useEffect(() => {
     setAudioFormat(getSupportedAudioFormat());
     fetchNotes();
+    return () => {
+      clearInterval(timerRef.current);
+      mediaRecorderRef.current?.stream?.getTracks().forEach((track) => track.stop());
+    };
   }, []);
 
   const startRecording = async () => {
@@ -218,7 +222,7 @@ export default function VoiceNotes() {
           {recording
             ? `Recording... ${formatDuration(recordingTime)}`
             : uploading
-            ? 'Sending voice note...'
+            ? 'Uploading voice note...'
             : 'Hold to record a voice message'}
         </p>
 
@@ -256,7 +260,7 @@ export default function VoiceNotes() {
         )}
 
         <p className="text-xs text-gray-400 mt-4">
-          {recording ? 'Release to send' : 'Press & hold the button to record'}
+          {recording ? 'Release to send' : uploading ? 'Uploading...' : 'Press & hold the button to record'}
         </p>
       </motion.div>
 

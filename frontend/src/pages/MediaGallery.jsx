@@ -5,8 +5,8 @@ import { HiOutlineCloudUpload, HiOutlineX, HiOutlinePhotograph, HiOutlineExclama
 // Design notes (so future-you remembers the intent):
 // This isn't a generic masonry grid. Every photo behaves like it's tucked
 // into a physical album page — a slight resting rotation, torn-edge corner
-// tape on hover, and a flip-to-the-back lightbox that mimics turning a
-// printed photo over to read what's written on the back.
+// tape on hover, and a lightbox caption panel that feels like a note on
+// the back of a printed photo.
 // Palette: near-black aubergine bg, warm sand/gold accents (old photo paper),
 // muted mauve for secondary text. Serif display for anything that reads like
 // a handwritten caption; sans for UI chrome.
@@ -131,7 +131,6 @@ function MediaGallery() {
   };
 
   const openLightbox = (img) => {
-    setIsFlipped(false);
     setActiveImage(img);
     setEditingCaption(img.caption || '');
     setCaptionSaved(false);
@@ -773,7 +772,7 @@ function MediaGallery() {
             </div>
           )}
 
-        {/* Lightbox: flips like turning a photo over */}
+        {/* Lightbox */}
         {activeImage && (
           <div
             className="fixed inset-0 z-50 overflow-y-auto"
