@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
@@ -11,7 +11,7 @@ import {
 } from 'react-icons/hi';
 import { useAuth } from '../context/AuthContext';
 
-const normalizeInviteCode = (value) => String(value || '').toUpperCase().replace(/[\s-]/g, '');
+const normalizeInviteCode = (value) => String(value || '').toUpperCase().replace(/[\s-]/g, '').slice(0, 8);
 
 function Invite() {
   const [searchParams] = useSearchParams();
@@ -31,16 +31,49 @@ function Invite() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
+
   const previewTimerRef = useRef(null);
   const copiedTimerRef = useRef(null);
   const navigateTimerRef = useRef(null);
+  const mountedRef = useRef(true);
 
   const shareUrl = useMemo(() => {
     if (!generatedInvite?.code || typeof window === 'undefined') return '';
     return `${window.location.origin}/join?code=${generatedInvite.code}`;
   }, [generatedInvite]);
 
-  const updateCode = (value) => {
+  // Safe async helper that prevents state updates on unmounted component
+  const safeSetState = useCallback((setter, value) => {
+    if (mountedRef.current) setter(value);
+  }, []);
+
+  const previewCode = useCallback(async (nextCode = code) => {
+    const normalizedCode = normalizeInviteCode(nextCode);
+    if (normalizedCode.length !== 8) {
+      safeSetState(setError, 'Enter the 8-character invitation code.');
+      return null;
+    }
+
+    safeSetState(setBusy, 'preview');
+    safeSetState(setError, '');
+    safeSetState(setMessage, '');
+    try {
+      const data = await previewPartnerInvite(normalizedCode);
+      if (!mountedRef.current) return null;
+      setPreview(data);
+      sessionStorage.setItem('pendingInviteCode', normalizedCode);
+      return data;
+    } catch (err) {
+      if (!mountedRef.current) return null;
+      safeSetState(setPreview, null);
+      safeSetState(setError, err.message);
+      return null;
+    } finally {
+      if (mountedRef.current) safeSetState(setBusy, '');
+    }
+  }, [code, previewPartnerInvite, safeSetState]);
+
+  const updateCode = useCallback((value) => {
     const next = normalizeInviteCode(value);
     setCode(next);
     setPreview(null);
@@ -51,58 +84,52 @@ function Invite() {
     if (next.length === 8) {
       previewTimerRef.current = setTimeout(() => previewCode(next), 300);
     }
-  };
+  }, [previewCode]);
 
-  const previewCode = async (nextCode = code) => {
-    const normalizedCode = normalizeInviteCode(nextCode);
-    if (normalizedCode.length !== 8) {
-      setError('Enter the 8-character invitation code.');
-      return null;
-    }
+  // Mount/unmount lifecycle only — must not depend on any state that changes
+  // while the component is mounted, or the cleanup fires on every re-render.
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      clearTimeout(previewTimerRef.current);
+      clearTimeout(copiedTimerRef.current);
+      clearTimeout(navigateTimerRef.current);
+    };
+  }, []);
 
-    setBusy('preview');
-    setError('');
-    setMessage('');
-    try {
-      const data = await previewPartnerInvite(normalizedCode);
-      setPreview(data);
-      sessionStorage.setItem('pendingInviteCode', normalizedCode);
-      return data;
-    } catch (err) {
-      setPreview(null);
-      setError(err.message);
-      return null;
-    } finally {
-      setBusy('');
-    }
-  };
+  // Keep a ref to the latest previewCode so the URL-driven effect below can
+  // call it without needing it in its dependency array (it changes on every
+  // keystroke since it closes over `code`).
+  const previewCodeRef = useRef(previewCode);
+  useEffect(() => {
+    previewCodeRef.current = previewCode;
+  }, [previewCode]);
 
+  // Prefill + preview from ?code= in the URL. Only reruns when the URL
+  // actually changes, not on every keystroke in the input.
   useEffect(() => {
     const initialCode = normalizeInviteCode(searchParams.get('code') || '');
     if (initialCode.length === 8) {
       setCode(initialCode);
-      previewCode(initialCode);
+      previewCodeRef.current(initialCode);
     }
-  }, []);
-
-  useEffect(() => () => {
-    clearTimeout(previewTimerRef.current);
-    clearTimeout(copiedTimerRef.current);
-    clearTimeout(navigateTimerRef.current);
-  }, []);
+  }, [searchParams]);
 
   const handleCreateInvite = async () => {
-    setBusy('create');
-    setError('');
-    setMessage('');
+    safeSetState(setBusy, 'create');
+    safeSetState(setError, '');
+    safeSetState(setMessage, '');
     try {
       const data = await createPartnerInvite();
+      if (!mountedRef.current) return;
       setGeneratedInvite(data);
       setMessage('Invitation code ready.');
     } catch (err) {
-      setError(err.message);
+      if (!mountedRef.current) return;
+      safeSetState(setError, err.message);
     } finally {
-      setBusy('');
+      if (mountedRef.current) safeSetState(setBusy, '');
     }
   };
 
@@ -112,7 +139,7 @@ function Invite() {
     try {
       if (!navigator.clipboard?.writeText) throw new Error('Clipboard API unavailable');
       await navigator.clipboard.writeText(text);
-      setCopied(true);
+      safeSetState(setCopied, true);
     } catch {
       const textarea = document.createElement('textarea');
       textarea.value = text;
@@ -129,21 +156,23 @@ function Invite() {
       }
 
       if (!copiedWithFallback) {
-        setError('Copy failed. Select the code and copy it manually.');
+        safeSetState(setError, 'Copy failed. Select the code and copy it manually.');
         return;
       }
-      setCopied(true);
+      safeSetState(setCopied, true);
     }
 
-    setError('');
+    safeSetState(setError, '');
     clearTimeout(copiedTimerRef.current);
-    copiedTimerRef.current = setTimeout(() => setCopied(false), 1600);
+    copiedTimerRef.current = setTimeout(() => {
+      safeSetState(setCopied, false);
+    }, 1600);
   };
 
   const handleAcceptInvite = async () => {
     const normalizedCode = normalizeInviteCode(code);
     if (normalizedCode.length !== 8) {
-      setError('Enter the 8-character invitation code.');
+      safeSetState(setError, 'Enter the 8-character invitation code.');
       return;
     }
 
@@ -153,19 +182,20 @@ function Invite() {
       return;
     }
 
-    setBusy('accept');
-    setError('');
-    setMessage('');
+    safeSetState(setBusy, 'accept');
+    safeSetState(setError, '');
+    safeSetState(setMessage, '');
     try {
       await acceptPartnerInvite(normalizedCode);
+      if (!mountedRef.current) return;
       sessionStorage.removeItem('pendingInviteCode');
       setMessage('Partner connected.');
-      clearTimeout(navigateTimerRef.current);
       navigateTimerRef.current = setTimeout(() => navigate('/'), 700);
     } catch (err) {
-      setError(err.message);
+      if (!mountedRef.current) return;
+      safeSetState(setError, err.message);
     } finally {
-      setBusy('');
+      if (mountedRef.current) safeSetState(setBusy, '');
     }
   };
 
@@ -179,7 +209,10 @@ function Invite() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blush-50 via-white to-sky-50 px-4 py-8">
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
-        <Link to={user ? '/' : '/login'} className="inline-flex items-center gap-2 self-start text-sm font-semibold text-gray-500 hover:text-blush-600">
+        <Link
+          to={user ? '/' : '/login'}
+          className="inline-flex items-center gap-2 self-start text-sm font-semibold text-gray-500 hover:text-blush-600"
+        >
           <HiOutlineArrowLeft className="text-lg" />
           Back
         </Link>
@@ -196,7 +229,9 @@ function Invite() {
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-gray-800">Invite Partner</h1>
-                <p className="mt-1 text-sm text-gray-500">Create one code for your partner to join your space.</p>
+                <p className="mt-1 text-sm text-gray-500">
+                  Create one code for your partner to join your space.
+                </p>
               </div>
             </div>
 
@@ -242,9 +277,15 @@ function Invite() {
                           <HiOutlineClipboardCopy className="text-xl" />
                         </button>
                       </div>
-                      {shareUrl && <p className="mt-3 break-all text-xs text-gray-400">{shareUrl}</p>}
-                      {generatedExpiry && <p className="mt-2 text-xs text-gray-400">Expires {generatedExpiry}</p>}
-                      {copied && <p className="mt-2 text-sm font-medium text-mint-700">Copied.</p>}
+                      {shareUrl && (
+                        <p className="mt-3 break-all text-xs text-gray-400">{shareUrl}</p>
+                      )}
+                      {generatedExpiry && (
+                        <p className="mt-2 text-xs text-gray-400">Expires {generatedExpiry}</p>
+                      )}
+                      {copied && (
+                        <p className="mt-2 text-sm font-medium text-mint-700">Copied.</p>
+                      )}
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -272,19 +313,25 @@ function Invite() {
               </div>
               <div>
                 <h2 className="text-2xl font-bold text-gray-800">Join With Code</h2>
-                <p className="mt-1 text-sm text-gray-500">Enter the invitation code your partner shared.</p>
+                <p className="mt-1 text-sm text-gray-500">
+                  Enter the invitation code your partner shared.
+                </p>
               </div>
             </div>
 
             <div className="space-y-4">
+              <label htmlFor="partner-invite-code" className="sr-only">
+                Invitation code
+              </label>
               <input
                 id="partner-invite-code"
                 type="text"
                 value={code}
                 onChange={(e) => updateCode(e.target.value)}
-                maxLength={8}
+                maxLength={12}
                 placeholder="ABCD2345"
                 className="w-full rounded-2xl border border-sky-200 bg-white/80 px-4 py-3 font-mono text-lg uppercase text-gray-800 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-sky-400"
+                aria-label="Invitation code"
               />
 
               <div className="grid gap-3 sm:grid-cols-2">
@@ -318,8 +365,12 @@ function Invite() {
                     className="rounded-2xl border border-sky-100 bg-sky-50 p-4"
                     key={`preview-${preview.code}`}
                   >
-                    <p className="text-sm font-semibold text-sky-800">Invite from {preview.inviterName}</p>
-                    {previewExpiry && <p className="mt-1 text-xs text-sky-600">Expires {previewExpiry}</p>}
+                    <p className="text-sm font-semibold text-sky-800">
+                      Invite from {preview.inviterName}
+                    </p>
+                    {previewExpiry && (
+                      <p className="mt-1 text-xs text-sky-600">Expires {previewExpiry}</p>
+                    )}
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -333,9 +384,10 @@ function Invite() {
               initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
-              className={`rounded-2xl px-4 py-3 text-center text-sm font-semibold ${
-                error ? 'bg-red-50 text-red-600' : 'bg-mint-50 text-mint-700'
-              }`}
+              className={`rounded-2xl px-4 py-3 text-center text-sm font-semibold ${error ? 'bg-red-50 text-red-600' : 'bg-mint-50 text-mint-700'
+                }`}
+              role="status"
+              aria-live="polite"
             >
               {error || message}
             </motion.div>
@@ -346,4 +398,4 @@ function Invite() {
   );
 }
 
-export default Invite;
+export default Invite; 

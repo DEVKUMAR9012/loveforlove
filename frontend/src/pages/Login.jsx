@@ -1,88 +1,67 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { FcGoogle } from 'react-icons/fc';
 import { FaInstagram, FaFacebook } from 'react-icons/fa';
 
 const normalizeInviteCode = (value) => String(value || '').toUpperCase().replace(/[\s-]/g, '');
-const isAlreadyConnectedInviteError = (error) =>
-  String(error?.message || '').toLowerCase().includes('already connected');
 
 function Login() {
   const [searchParams] = useSearchParams();
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [inviteCode, setInviteCode] = useState(() =>
-    normalizeInviteCode(searchParams.get('code') || sessionStorage.getItem('pendingInviteCode') || '')
-  );
-  const [isSignUp, setIsSignUp] = useState(false);
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState('');
   const navigate = useNavigate();
-  const { user, login, register, signInWithSocial, acceptPartnerInvite } = useAuth();
+  const { user, signInWithSocial, acceptPartnerInvite } = useAuth();
 
-  // Redirect if already logged in (e.g. after mobile redirect)
   useEffect(() => {
-    if (user) {
-      navigate('/');
-    }
+    if (user) navigate('/');
   }, [user, navigate]);
-
-  const acceptInviteIfPresent = async () => {
-    const normalizedCode = normalizeInviteCode(inviteCode);
-    if (!normalizedCode) return;
-    if (user?.partnerId) {
-      sessionStorage.removeItem('pendingInviteCode');
-      return;
-    }
-
-    try {
-      await acceptPartnerInvite(normalizedCode);
-      sessionStorage.removeItem('pendingInviteCode');
-    } catch (err) {
-      if (!isAlreadyConnectedInviteError(err)) throw err;
-      sessionStorage.removeItem('pendingInviteCode');
-    }
-  };
 
   const handleSocialAuth = async (provider) => {
     setError('');
-    setLoading(true);
+    setLoading(provider);
+    const inviteCode = normalizeInviteCode(
+      searchParams.get('code') || sessionStorage.getItem('pendingInviteCode') || ''
+    );
     try {
       await signInWithSocial(provider);
-      await acceptInviteIfPresent();
-      navigate('/');
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleAuth = async (e) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
-
-    try {
-      if (isSignUp) {
-        await register(name, email, password);
-      } else {
-        await login(email, password);
+      if (inviteCode) {
+        await acceptPartnerInvite(inviteCode);
+        sessionStorage.removeItem('pendingInviteCode');
       }
-      await acceptInviteIfPresent();
       navigate('/');
     } catch (err) {
       setError(err.message);
     } finally {
-      setLoading(false);
+      setLoading('');
     }
   };
+
+  const socialButtons = [
+    {
+      id: 'google',
+      label: 'Continue with Google',
+      icon: <FcGoogle className="text-2xl" />,
+      className: 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300 shadow-sm hover:shadow-md',
+    },
+    {
+      id: 'instagram',
+      label: 'Continue with Instagram',
+      icon: <FaInstagram className="text-2xl text-white" />,
+      className: 'text-white hover:opacity-90 shadow-sm hover:shadow-md',
+      style: { background: 'linear-gradient(135deg, #f9ce34, #ee2a7b, #6228d7)' },
+    },
+    {
+      id: 'facebook',
+      label: 'Continue with Facebook',
+      icon: <FaFacebook className="text-2xl text-white" />,
+      className: 'bg-[#1877F2] text-white hover:bg-[#166fe5] shadow-sm hover:shadow-md',
+    },
+  ];
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blush-50 via-white to-sky-50 relative overflow-hidden">
+    <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blush-50 via-white to-sky-50 relative overflow-hidden px-4">
       {/* Decorative blobs */}
       <div className="absolute top-[-100px] left-[-100px] w-96 h-96 bg-blush-200 rounded-full opacity-30 blur-3xl pointer-events-none" />
       <div className="absolute bottom-[-100px] right-[-100px] w-96 h-96 bg-sky-200 rounded-full opacity-30 blur-3xl pointer-events-none" />
@@ -91,163 +70,68 @@ function Login() {
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease: 'easeOut' }}
-        className="glass p-8 rounded-3xl shadow-xl w-full max-w-sm mx-4 relative z-10"
+        className="glass p-8 rounded-3xl shadow-xl w-full max-w-sm relative z-10"
       >
         {/* Header */}
-        <div className="text-center mb-6">
+        <div className="text-center mb-10">
           <motion.div
             animate={{ rotate: [0, 10, -10, 0] }}
             transition={{ repeat: Infinity, duration: 4, ease: 'easeInOut' }}
-            className="text-5xl mb-3"
+            className="text-5xl mb-4"
           >
             🌸
           </motion.div>
-          <h1 className="text-3xl font-bold text-gray-800">
-            {isSignUp ? 'Join the universe' : 'Welcome back'}
-          </h1>
-          <p className="text-gray-400 text-sm mt-1">
-            {isSignUp ? 'Create your personal space' : 'Sign in to your safe space'}
-          </p>
+          <h1 className="text-3xl font-bold text-gray-800">Welcome back</h1>
+          <p className="text-gray-400 text-sm mt-2">Sign in to your safe space</p>
         </div>
 
-        <form onSubmit={handleAuth} className="space-y-4">
-          <AnimatePresence>
-            {isSignUp && (
-              <motion.div
-                key="name-field"
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                transition={{ duration: 0.25 }}
-              >
-                <input
-                  id="name-input"
-                  type="text"
-                  placeholder="Your name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required={isSignUp}
-                  className="w-full px-4 py-3 rounded-2xl border border-blush-200 bg-white/70 focus:outline-none focus:ring-2 focus:ring-blush-400 text-gray-800 placeholder-gray-400 transition"
-                />
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          <input
-            id="email-input"
-            type="email"
-            placeholder="Email address"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            className="w-full px-4 py-3 rounded-2xl border border-blush-200 bg-white/70 focus:outline-none focus:ring-2 focus:ring-blush-400 text-gray-800 placeholder-gray-400 transition"
-          />
-          <input
-            id="password-input"
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            className="w-full px-4 py-3 rounded-2xl border border-blush-200 bg-white/70 focus:outline-none focus:ring-2 focus:ring-blush-400 text-gray-800 placeholder-gray-400 transition"
-          />
-
-          <input
-            id="invite-code-input"
-            type="text"
-            placeholder="Invitation code (optional)"
-            value={inviteCode}
-            onChange={(e) => setInviteCode(normalizeInviteCode(e.target.value))}
-            maxLength={8}
-            className="w-full px-4 py-3 rounded-2xl border border-sky-200 bg-white/70 focus:outline-none focus:ring-2 focus:ring-sky-400 text-gray-800 placeholder-gray-400 font-mono uppercase transition"
-          />
-
-          <AnimatePresence>
-            {error && (
-              <motion.p
-                initial={{ opacity: 0, y: -4 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                className="text-red-500 text-sm text-center bg-red-50 rounded-xl px-3 py-2"
-              >
-                {error}
-              </motion.p>
-            )}
-          </AnimatePresence>
-
-          <motion.button
-            id="auth-submit-btn"
-            type="submit"
-            disabled={loading}
-            whileTap={{ scale: 0.97 }}
-            className="w-full bg-gradient-to-r from-blush-400 to-blush-500 hover:from-blush-500 hover:to-blush-600 text-white py-3 rounded-2xl font-semibold transition shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
-          >
-            {loading ? (
-              <span className="flex items-center justify-center gap-2">
-                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
-                </svg>
-                {inviteCode ? 'Joining invite...' : (isSignUp ? 'Creating account...' : 'Signing in...')}
-              </span>
-            ) : (
-              inviteCode ? (isSignUp ? 'Create & Join' : 'Sign In & Join') : (isSignUp ? 'Create Account' : 'Sign In')
-            )}
-          </motion.button>
-        </form>
-
-        {/* Invitation link removed as requested */}
-
-        <div className="mt-8 flex items-center justify-center gap-4">
-          <div className="h-px bg-gray-200 flex-1"></div>
-          <span className="text-xs text-gray-400 font-medium tracking-wider uppercase">Or continue with</span>
-          <div className="h-px bg-gray-200 flex-1"></div>
+        {/* Social Buttons */}
+        <div className="flex flex-col gap-3">
+          {socialButtons.map((btn) => (
+            <motion.button
+              key={btn.id}
+              id={`login-${btn.id}-btn`}
+              type="button"
+              disabled={!!loading}
+              whileHover={{ scale: loading ? 1 : 1.02 }}
+              whileTap={{ scale: loading ? 1 : 0.97 }}
+              onClick={() => handleSocialAuth(btn.id)}
+              className={`relative flex items-center gap-3 w-full px-5 py-3.5 rounded-2xl font-semibold text-sm transition-all ${btn.className}`}
+              style={btn.style}
+            >
+              {loading === btn.id ? (
+                <>
+                  <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin opacity-60" />
+                  <span className="opacity-70">Signing in…</span>
+                </>
+              ) : (
+                <>
+                  <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-white/20">
+                    {btn.icon}
+                  </span>
+                  <span>{btn.label}</span>
+                </>
+              )}
+            </motion.button>
+          ))}
         </div>
 
-        <div className="flex justify-center gap-5 mt-6">
-          <motion.button 
-            type="button"
-            onClick={() => handleSocialAuth('google')}
-            disabled={loading}
-            whileHover={{ scale: 1.08, y: -3, rotate: -3 }} 
-            whileTap={{ scale: 0.95 }}
-            className="flex items-center justify-center w-12 h-12 bg-white rounded-[1rem] shadow-sm border border-gray-100 hover:shadow-md transition text-2xl"
-          >
-            <FcGoogle />
-          </motion.button>
-          
-          <motion.button 
-            type="button"
-            onClick={() => handleSocialAuth('instagram')}
-            disabled={loading}
-            whileHover={{ scale: 1.08, y: -3, rotate: 3 }} 
-            whileTap={{ scale: 0.95 }}
-            className="flex items-center justify-center w-12 h-12 bg-gradient-to-tr from-yellow-400 via-pink-500 to-purple-600 rounded-[1rem] shadow-sm hover:shadow-md transition text-white text-[1.4rem]"
-          >
-            <FaInstagram />
-          </motion.button>
-          
-          <motion.button 
-            type="button"
-            onClick={() => handleSocialAuth('facebook')}
-            disabled={loading}
-            whileHover={{ scale: 1.08, y: -3, rotate: -3 }} 
-            whileTap={{ scale: 0.95 }}
-            className="flex items-center justify-center w-12 h-12 bg-[#1877F2] rounded-[1rem] shadow-sm hover:shadow-md transition text-white text-[1.4rem]"
-          >
-            <FaFacebook />
-          </motion.button>
-        </div>
+        {/* Error */}
+        <AnimatePresence>
+          {error && (
+            <motion.p
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              className="text-red-500 text-sm text-center bg-red-50 rounded-xl px-3 py-2 mt-4"
+            >
+              {error}
+            </motion.p>
+          )}
+        </AnimatePresence>
 
-        <p className="text-center text-gray-500 mt-8 text-sm">
-          {isSignUp ? 'Already have an account?' : "Don't have an account?"}
-          <button
-            id="toggle-auth-mode"
-            onClick={() => { setIsSignUp(!isSignUp); setError(''); }}
-            className="text-blush-600 font-semibold ml-1 hover:underline"
-          >
-            {isSignUp ? 'Sign In' : 'Sign Up'}
-          </button>
+        <p className="text-center text-xs text-gray-300 mt-8">
+          Your memories are private & secure 🔒
         </p>
       </motion.div>
     </div>

@@ -33,12 +33,18 @@ const Guarded = ({ children }) => (
   <ErrorBoundary>{children}</ErrorBoundary>
 );
 
+// Reads user from context so WelcomeBanner knows who is logged in
+const BannerWrapper = () => {
+  const { user } = useAuth();
+  return <WelcomeBanner user={user} />;
+};
+
 function App() {
   return (
     // Top-level boundary catches AuthProvider / Router crashes
     <ErrorBoundary>
       <AuthProvider>
-        <WelcomeBanner />
+        <BannerWrapper />
         <Router>
           <Routes>
             <Route
