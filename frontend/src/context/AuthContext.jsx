@@ -130,6 +130,7 @@ export function AuthProvider({ children }) {
     if (!res.ok) throw new Error(data.message || 'Login failed');
 
     localStorage.setItem('token', data.token);
+    sessionStorage.setItem('lfl_just_logged_in', '1');
     setUser(serializeAuthUser(data));
     scheduleRefresh();
   };
@@ -159,6 +160,7 @@ export function AuthProvider({ children }) {
       if (!res.ok) throw new Error(data.message || 'Social login failed');
 
       localStorage.setItem('token', data.token);
+      sessionStorage.setItem('lfl_just_logged_in', '1');
       setUser(serializeAuthUser(data));
       scheduleRefresh();
     } catch (err) {
@@ -189,6 +191,7 @@ export function AuthProvider({ children }) {
     }
 
     localStorage.setItem('token', data.token);
+    sessionStorage.setItem('lfl_just_logged_in', '1');
     setUser(serializeAuthUser(data));
     scheduleRefresh();
   };

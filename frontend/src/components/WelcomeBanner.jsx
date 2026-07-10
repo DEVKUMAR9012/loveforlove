@@ -68,10 +68,13 @@ export default function WelcomeBanner({ user }) {
   }, []);
 
   useEffect(() => {
-    // Only show if user is logged in, show every time after login
+    // Only show if user is logged in AND they just logged in during this session
     if (!user) return;
+    const justLoggedIn = sessionStorage.getItem('lfl_just_logged_in');
+    if (!justLoggedIn) return;
 
     const timer = setTimeout(() => {
+      sessionStorage.removeItem('lfl_just_logged_in');
       setVisible(true);
       // Play SUIII sound effect
       try {
