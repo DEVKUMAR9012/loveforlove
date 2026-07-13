@@ -3,6 +3,7 @@ import { Outlet } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Navigate } from 'react-router-dom';
 import WelcomeBanner from '../WelcomeBanner';
+import NotificationBell from './NotificationBell';
 
 function Layout() {
   const { user, loading } = useAuth();
@@ -22,6 +23,7 @@ function Layout() {
   return (
     <div className="flex flex-col md:flex-row min-h-screen bg-gradient-to-br from-blush-50 via-white to-sky-50 overflow-hidden">
       <WelcomeBanner user={user} />
+      <NotificationBell />
       <Navbar />
       <main className="flex-1 overflow-y-auto p-4 md:p-8 pb-24 md:pb-8">
         <Outlet />
