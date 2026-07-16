@@ -12,7 +12,8 @@ import {
   HiOutlineMicrophone,
   HiOutlineLogout,
   HiOutlineCog,
-  HiOutlineShieldCheck
+  HiOutlineShieldCheck,
+  HiOutlineLocationMarker
 } from 'react-icons/hi';
 
 const navItems = [
@@ -23,6 +24,7 @@ const navItems = [
   { label: 'Snap', to: '/snap', icon: HiOutlineCamera },
   { label: 'Messages', to: '/messages', icon: HiOutlineMail },
   { label: 'Voice', to: '/voice', icon: HiOutlineMicrophone },
+  { label: 'Location', to: '/location', icon: HiOutlineLocationMarker },
   { label: 'Settings', to: '/settings', icon: HiOutlineCog },
 ];
 
@@ -112,6 +114,16 @@ function Sidebar() {
 
   return (
     <aside className="fixed bottom-0 w-full md:relative flex md:flex-col md:h-screen md:w-full md:max-w-[280px] bg-white md:border-r border-t md:border-t-0 border-gray-100 md:px-5 md:py-8 z-50">
+      {/* Hidden SVG for Icon Gradient */}
+      <svg width="0" height="0" className="absolute">
+        <defs>
+          <linearGradient id="icon-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#ee2a7b" />
+            <stop offset="50%" stopColor="#f26e4e" />
+            <stop offset="100%" stopColor="#f9ce34" />
+          </linearGradient>
+        </defs>
+      </svg>
       {/* Brand - hidden on mobile */}
       <div className="hidden md:flex flex-col items-center mb-8">
         <AnimatedLogo className="w-16 h-16 mb-1 drop-shadow-sm" />
@@ -142,7 +154,13 @@ function Sidebar() {
                     : undefined
                 }
               >
-                <Icon className={`text-xl md:text-xl shrink-0 ${isActive ? 'text-white' : 'text-gray-400'}`} />
+                <Icon
+                  className="text-xl md:text-xl shrink-0"
+                  style={{
+                    stroke: isActive ? 'white' : 'url(#icon-gradient)',
+                    color: isActive ? 'white' : 'transparent',
+                  }}
+                />
                 <span className={`${!isActive ? 'hidden md:block' : 'block'}`}>{label}</span>
               </motion.div>
             )}
@@ -165,7 +183,13 @@ function Sidebar() {
                     : undefined
                 }
               >
-                <HiOutlineShieldCheck className={`text-xl md:text-xl shrink-0 ${isActive ? 'text-white' : 'text-gray-400'}`} />
+                <HiOutlineShieldCheck
+                  className="text-xl md:text-xl shrink-0"
+                  style={{
+                    stroke: isActive ? 'white' : 'url(#icon-gradient)',
+                    color: isActive ? 'white' : 'transparent',
+                  }}
+                />
                 <span className={`${!isActive ? 'hidden md:block' : 'block'}`}>Admin</span>
               </motion.div>
             )}
@@ -177,7 +201,10 @@ function Sidebar() {
           onClick={logout}
           className="md:hidden flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-2xl transition-colors min-w-[4.5rem] flex-shrink-0 text-gray-500 hover:bg-rose-50 hover:text-[#8b1c31]"
         >
-          <HiOutlineLogout className="text-xl" />
+          <HiOutlineLogout
+            className="text-xl"
+            style={{ stroke: 'url(#icon-gradient)', color: 'transparent' }}
+          />
           <span className="text-xs font-semibold">Logout</span>
         </button>
       </nav>

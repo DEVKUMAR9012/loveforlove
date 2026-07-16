@@ -4,6 +4,7 @@ const cloudinary = require('cloudinary').v2;
 const { Readable } = require('stream');
 const Snap = require('../models/Snap');
 const User = require('../models/User');
+const { createNotification } = require('./notifications');
 const { protect } = require('../middleware/authMiddleware');
 const { uploadLimiter } = require('../middleware/rateLimiters');
 
@@ -111,6 +112,13 @@ router.post('/', protect, uploadLimiter, upload.single('snap'), async (req, res)
       imageUrl: result.secure_url,
       publicId: result.public_id,
       caption: typeof req.body.caption === 'string' ? req.body.caption.trim().slice(0, 120) : '',
+    });
+
+    // Send Realtime Notification via SSE
+    await createNotification(partner._id, {
+      title: 'New Snap! 📸',
+      message: `${req.user.name || req.user.email || 'Your partner'} sent you a new snap.`,
+      type: 'snap'
     });
 
     const email = await sendSnapEmail({ sender: req.user, recipient: partner, snap })

@@ -4,6 +4,7 @@ const cors    = require('cors');
 const cookieParser = require('cookie-parser');
 const connectDB = require('./config/db');
 const { apiLimiter } = require('./middleware/rateLimiters');
+const { Server } = require('socket.io');
 
 // routes
 const authRoutes     = require('./routes/auth');
@@ -19,6 +20,7 @@ const snapsRoutes    = require('./routes/snaps');
 const aiRoutes       = require('./routes/ai');
 const reportsRoutes       = require('./routes/reports');
 const notificationsRoutes = require('./routes/notifications');
+const locationRoutes = require('./routes/location');
 
 const app = express();
 
@@ -78,8 +80,7 @@ app.use('/api/calendar', calendarRoutes);
 app.use('/api/snaps',    snapsRoutes);
 app.use('/api/ai',       aiRoutes);
 app.use('/api/reports',        reportsRoutes);
-app.use('/api/notifications',  notificationsRoutes);
-
+app.use('/api/notifications',  notificationsRoutes);app.use('/api/location',       locationRoutes);
 // ── 404 handler ───────────────────────────────────────────────────────────
 app.use((req, res) => {
   res.status(404).json({ message: `Route ${req.originalUrl} not found` });
@@ -107,7 +108,130 @@ const PORT = process.env.PORT || 4000;
 const server = app.listen(PORT, () => {
   console.log(`Server running on port ${PORT} [${process.env.NODE_ENV || 'development'}]`);
 });
+// ── Socket.io setup ───────────────────────────────────────────────────
+const io = new Server(server, {
+  cors: {
+    origin: allowedOrigins,
+    credentials: true,
+  },
+});
 
+// Socket.io authentication middleware
+io.use((socket, next) => {
+  const token = socket.handshake.auth.token;
+  if (!token) {
+    return next(new Error('Authentication failed'));
+  }
+
+  try {
+    const decoded = require('jsonwebtoken').verify(token, process.env.JWT_SECRET || 'your_secret');
+    socket.userId = decoded.id;
+    socket.partnerId = decoded.partnerId; // Store partnerId for broadcasting
+    next();
+  } catch (err) {
+    next(new Error('Invalid token'));
+  }
+});
+
+// Socket.io event handlers
+io.on('connection', (socket) => {
+  console.log(`User ${socket.userId} connected (socket: ${socket.id})`);
+
+  // Join a room named after the relationship (assuming couple uses same room key)
+  // Convention: room name = sorted([user1Id, user2Id]).join('-')
+  if (socket.partnerId) {
+    const roomKey = [socket.userId, socket.partnerId].sort().join('-');
+    socket.join(roomKey);
+    console.log(`User ${socket.userId} joined room: ${roomKey}`);
+
+    // Notify partner that user is online
+    io.to(roomKey).emit('location:user-online', {
+      userId: socket.userId,
+      socketId: socket.id,
+    });
+  }
+
+  // Handle location updates
+  socket.on('location:update', (data) => {
+    if (socket.partnerId) {
+      const roomKey = [socket.userId, socket.partnerId].sort().join('-');
+
+      // Broadcast updated location to partner
+      io.to(roomKey).emit('location:update', {
+        userId: socket.userId,
+        latitude: data.latitude,
+        longitude: data.longitude,
+        accuracy: data.accuracy,
+        battery: data.battery,
+        speed: data.speed,
+        heading: data.heading,
+        timestamp: new Date(),
+      });
+    }
+  });
+
+  // Handle "send a hug" event
+  socket.on('hug:send', (data) => {
+    if (socket.partnerId) {
+      const roomKey = [socket.userId, socket.partnerId].sort().join('-');
+
+      // Broadcast hug to partner
+      io.to(roomKey).emit('hug:received', {
+        fromUserId: socket.userId,
+        timestamp: new Date(),
+      });
+    }
+  });
+
+  // Handle arrival celebration
+  socket.on('arrival:celebrate', (data) => {
+    if (socket.partnerId) {
+      const roomKey = [socket.userId, socket.partnerId].sort().join('-');
+
+      // Broadcast arrival to both (partner will see celebration)
+      io.to(roomKey).emit('arrival:celebrate', {
+        userId: socket.userId,
+        timestamp: new Date(),
+      });
+    }
+  });
+
+  // Handle geofence event (entered/exited zone)
+  socket.on('geofence:event', (data) => {
+    if (socket.partnerId) {
+      const roomKey = [socket.userId, socket.partnerId].sort().join('-');
+
+      // Broadcast geofence event to partner
+      io.to(roomKey).emit('geofence:event', {
+        userId: socket.userId,
+        zoneId: data.zoneId,
+        zoneName: data.zoneName,
+        eventType: data.eventType, // 'enter' or 'exit'
+        timestamp: new Date(),
+      });
+    }
+  });
+
+  // Handle disconnection
+  socket.on('disconnect', () => {
+    console.log(`User ${socket.userId} disconnected (socket: ${socket.id})`);
+
+    if (socket.partnerId) {
+      const roomKey = [socket.userId, socket.partnerId].sort().join('-');
+      io.to(roomKey).emit('location:user-offline', {
+        userId: socket.userId,
+      });
+    }
+  });
+
+  // Handle error
+  socket.on('error', (error) => {
+    console.error(`Socket error for user ${socket.userId}:`, error);
+  });
+});
+
+// Attach io to app for use in controllers/middleware
+app.io = io;
 server.on('error', (err) => {
   if (err.code === 'EADDRINUSE') {
     console.error(`Port ${PORT} is already in use.`);

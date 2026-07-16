@@ -4,6 +4,8 @@ const { protect } = require('../middleware/authMiddleware');
 const { apiLimiter } = require('../middleware/rateLimiters');
 const Notification = require('../models/Notification');
 
+const sseClients = new Map(); // userId -> Set of response objects
+
 router.use(apiLimiter);
 router.use(protect);
 
@@ -28,12 +30,45 @@ async function seedWelcomeNotification(userId) {
 // ── Helper: create a notification for a user (use from other routes) ────────
 async function createNotification(userId, { title, message, type = 'general' }) {
   try {
-    return await Notification.create({ userId, title, message, type });
+    const notif = await Notification.create({ userId, title, message, type });
+    const userClients = sseClients.get(userId.toString());
+    if (userClients) {
+      for (const client of userClients) {
+        client.write(`data: ${JSON.stringify(notif)}\n\n`);
+      }
+    }
+    return notif;
   } catch (err) {
     console.error('[Notifications] createNotification error:', err.message);
     return null;
   }
 }
+
+// GET /api/notifications/stream
+// Server-Sent Events endpoint for real-time notifications
+router.get('/stream', (req, res) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders(); // flush the headers to establish SSE connection
+
+  const userId = req.user._id.toString();
+  
+  if (!sseClients.has(userId)) {
+    sseClients.set(userId, new Set());
+  }
+  sseClients.get(userId).add(res);
+
+  req.on('close', () => {
+    const userClients = sseClients.get(userId);
+    if (userClients) {
+      userClients.delete(res);
+      if (userClients.size === 0) {
+        sseClients.delete(userId);
+      }
+    }
+  });
+});
 
 // GET /api/notifications
 // Returns the 50 most recent notifications for the current user (newest first).

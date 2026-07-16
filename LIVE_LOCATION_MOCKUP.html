@@ -1,0 +1,1074 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Location Feature - UX Mockup</title>
+    <script src="https://cdn.jsdelivr.net/npm/framer-motion@latest"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f5f5f5;
+            overflow-x: hidden;
+        }
+
+        .mockup-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            padding: 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .phone-frame {
+            width: 100%;
+            max-width: 400px;
+            height: 800px;
+            background: #000;
+            border-radius: 40px;
+            padding: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .phone-frame::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 180px;
+            height: 28px;
+            background: #000;
+            border-radius: 0 0 30px 30px;
+            z-index: 10;
+        }
+
+        .screen {
+            flex: 1;
+            background: #fff;
+            border-radius: 35px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .map-area {
+            flex: 1;
+            background: linear-gradient(135deg, #e0f7f4 0%, #fff9e0 100%);
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .map-marker {
+            position: absolute;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .marker-avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            border: 3px solid #ec4899;
+            background: linear-gradient(135deg, #ec4899 0%, #f97316 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 20px;
+            position: relative;
+            box-shadow: 0 0 0 12px rgba(236, 72, 153, 0.1);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                box-shadow: 0 0 0 12px rgba(236, 72, 153, 0.1);
+            }
+            50% {
+                box-shadow: 0 0 0 20px rgba(236, 72, 153, 0.05);
+            }
+        }
+
+        .marker-label {
+            font-size: 11px;
+            font-weight: 600;
+            margin-top: 4px;
+            color: #333;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 2px 6px;
+            border-radius: 3px;
+            white-space: nowrap;
+        }
+
+        .marker-1 {
+            top: 20%;
+            left: 25%;
+        }
+
+        .marker-2 {
+            bottom: 20%;
+            right: 25%;
+        }
+
+        .route-line {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .distance-badge {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: white;
+            padding: 12px 16px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            font-weight: 600;
+            color: #ec4899;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .pause-badge {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: #fef2f2;
+            border: 2px solid #fca5a5;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #991b1b;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .safe-zone {
+            position: absolute;
+            border: 2px dashed #a78bfa;
+            border-radius: 50%;
+            background: rgba(167, 139, 250, 0.05);
+        }
+
+        .zone-1 {
+            width: 80px;
+            height: 80px;
+            top: 15%;
+            left: 10%;
+        }
+
+        .zone-2 {
+            width: 100px;
+            height: 100px;
+            bottom: 10%;
+            right: 15%;
+        }
+
+        .zone-label {
+            position: absolute;
+            font-size: 10px;
+            font-weight: 600;
+            color: #7c3aed;
+            background: rgba(167, 139, 250, 0.2);
+            padding: 2px 6px;
+            border-radius: 3px;
+            white-space: nowrap;
+            top: -15px;
+            left: -10px;
+        }
+
+        .bottom-sheet {
+            background: white;
+            border-radius: 24px 24px 0 0;
+            padding: 20px;
+            box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
+            position: relative;
+            max-height: 280px;
+        }
+
+        .sheet-handle {
+            width: 40px;
+            height: 4px;
+            background: #e5e7eb;
+            border-radius: 2px;
+            margin: 0 auto 16px;
+        }
+
+        .partner-status {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 16px;
+        }
+
+        .partner-info {
+            display: flex;
+            gap: 12px;
+        }
+
+        .partner-avatar {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #f97316 0%, #ec4899 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 24px;
+            flex-shrink: 0;
+        }
+
+        .partner-details h3 {
+            font-size: 16px;
+            font-weight: 700;
+            color: #111;
+            margin-bottom: 2px;
+        }
+
+        .partner-details p {
+            font-size: 13px;
+            color: #666;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            background: #f0fdf4;
+            color: #166534;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: #22c55e;
+            border-radius: 50%;
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .action-btn {
+            padding: 12px 16px;
+            border-radius: 12px;
+            border: none;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #ec4899 0%, #f97316 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(236, 72, 153, 0.4);
+        }
+
+        .btn-secondary {
+            background: #f3f4f6;
+            color: #111;
+            border: 2px solid #e5e7eb;
+        }
+
+        .btn-secondary:hover {
+            background: #e5e7eb;
+        }
+
+        .quick-actions {
+            display: flex;
+            gap: 12px;
+            overflow-x: auto;
+            padding-bottom: 4px;
+        }
+
+        .quick-action {
+            flex-shrink: 0;
+            width: 80px;
+            padding: 10px;
+            background: #f9fafb;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .quick-action:hover {
+            border-color: #ec4899;
+            background: #fce7f3;
+        }
+
+        .quick-action-label {
+            font-size: 10px;
+            font-weight: 600;
+            color: #666;
+            margin-top: 4px;
+            display: block;
+        }
+
+        /* Annotations */
+        .annotation {
+            position: absolute;
+            font-size: 12px;
+            font-weight: 600;
+            padding: 8px 12px;
+            background: #fef3c7;
+            border: 2px solid #fcd34d;
+            border-radius: 8px;
+            pointer-events: none;
+            z-index: 100;
+        }
+
+        .arrow {
+            position: absolute;
+            font-size: 20px;
+        }
+
+        /* Desktop comparison */
+        .comparison {
+            padding: 30px;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .comparison h2 {
+            font-size: 18px;
+            margin-bottom: 20px;
+            color: #111;
+            font-weight: 700;
+        }
+
+        .feature-grid {
+            display: grid;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .feature-item {
+            display: flex;
+            gap: 12px;
+        }
+
+        .feature-icon {
+            flex-shrink: 0;
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #ec4899 0%, #f97316 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 20px;
+        }
+
+        .feature-text h3 {
+            font-size: 14px;
+            font-weight: 600;
+            color: #111;
+            margin-bottom: 2px;
+        }
+
+        .feature-text p {
+            font-size: 12px;
+            color: #666;
+            line-height: 1.4;
+        }
+
+        .phase-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            background: #dbeafe;
+            color: #1e40af;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+
+        .phase-badge.v1 { background: #dcfce7; color: #166534; }
+        .phase-badge.v2 { background: #fce7f3; color: #831843; }
+        .phase-badge.optional { background: #e9d5ff; color: #581c87; }
+
+        h1 {
+            text-align: center;
+            font-size: 28px;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #ec4899 0%, #f97316 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #e5e7eb;
+            flex-wrap: wrap;
+        }
+
+        .tab {
+            padding: 12px 0;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            color: #666;
+            transition: all 0.2s;
+        }
+
+        .tab.active {
+            color: #ec4899;
+            border-bottom-color: #ec4899;
+        }
+
+        .tab:hover {
+            color: #111;
+        }
+
+        .section {
+            display: none;
+        }
+
+        .section.active {
+            display: block;
+        }
+
+        .flow-diagram {
+            background: #f9fafb;
+            padding: 20px;
+            border-radius: 12px;
+            margin-top: 16px;
+        }
+
+        .flow-step {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+            font-size: 13px;
+        }
+
+        .flow-step:last-child {
+            margin-bottom: 0;
+        }
+
+        .flow-number {
+            flex-shrink: 0;
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, #ec4899 0%, #f97316 100%);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .flow-text {
+            flex: 1;
+        }
+
+        .flow-arrow {
+            color: #ccc;
+            font-size: 18px;
+            margin: 0 8px;
+        }
+    </style>
+</head>
+<body>
+    <h1>💗 Live Location Feature Mockup</h1>
+    <p class="subtitle">Couples app – Real-time tracking with emotional hooks</p>
+
+    <div style="max-width: 1200px; margin: 0 auto; padding: 0 20px;">
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab('main')">Main Map View</div>
+            <div class="tab" onclick="switchTab('features')">Feature Breakdown</div>
+            <div class="tab" onclick="switchTab('flows')">Interaction Flows</div>
+            <div class="tab" onclick="switchTab('states')">Privacy States</div>
+        </div>
+
+        <!-- MAIN MAP VIEW -->
+        <div id="main" class="section active">
+            <div class="mockup-container">
+                <div>
+                    <div class="phone-frame">
+                        <div class="screen">
+                            <div class="map-area">
+                                <!-- Distance badge -->
+                                <div class="distance-badge">
+                                    📍 2.4 km apart
+                                </div>
+
+                                <!-- Pause indicator -->
+                                <div class="pause-badge">
+                                    ⏸️ Sharing paused
+                                </div>
+
+                                <!-- Safe zones -->
+                                <div class="safe-zone zone-1">
+                                    <div class="zone-label">Home</div>
+                                </div>
+                                <div class="safe-zone zone-2">
+                                    <div class="zone-label">Office</div>
+                                </div>
+
+                                <!-- Partner markers -->
+                                <div class="map-marker marker-1">
+                                    <div class="marker-avatar">You</div>
+                                    <div class="marker-label">At Home</div>
+                                </div>
+                                <div class="map-marker marker-2">
+                                    <div class="marker-avatar">💛</div>
+                                    <div class="marker-label">On my way</div>
+                                </div>
+
+                                <!-- Route line (SVG simulated) -->
+                                <svg class="route-line" style="pointer-events: none;">
+                                    <line x1="25%" y1="20%" x2="75%" y2="80%" stroke="#ec4899" stroke-width="2" stroke-dasharray="5,5" opacity="0.3" />
+                                </svg>
+                            </div>
+
+                            <!-- Bottom sheet -->
+                            <div class="bottom-sheet">
+                                <div class="sheet-handle"></div>
+                                
+                                <div class="partner-status">
+                                    <div class="partner-info">
+                                        <div class="partner-avatar">💛</div>
+                                        <div class="partner-details">
+                                            <h3>Priya</h3>
+                                            <p><span class="status-indicator"><span class="status-dot"></span>Driving</span></p>
+                                            <p style="font-size: 12px; color: #999; margin-top: 4px;">Reaching in 12 mins</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="actions">
+                                    <button class="action-btn btn-primary">🤗 Send Hug</button>
+                                    <button class="action-btn btn-secondary">📞 Call</button>
+                                </div>
+
+                                <div class="quick-actions">
+                                    <div class="quick-action" title="Share ETA">🚗</div>
+                                    <div class="quick-action" title="Message">💬</div>
+                                    <div class="quick-action" title="Weather">☔</div>
+                                    <div class="quick-action" title="Pause sharing">⏸️</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="comparison">
+                    <h2>🎯 What makes this "sticky"</h2>
+                    
+                    <div class="feature-grid">
+                        <div class="feature-item">
+                            <div class="feature-icon">💛</div>
+                            <div class="feature-text">
+                                <h3>Send a hug <span class="phase-badge v1">Phase 1</span></h3>
+                                <p>Instant haptic feedback + animation on partner's phone. Breaks the "cold tracking" feeling.</p>
+                            </div>
+                        </div>
+
+                        <div class="feature-item">
+                            <div class="feature-icon">🎉</div>
+                            <div class="feature-text">
+                                <h3>Arrival celebration <span class="phase-badge v1">Phase 1</span></h3>
+                                <p>When within 500m, confetti + "She's almost here!" triggers genuine excitement.</p>
+                            </div>
+                        </div>
+
+                        <div class="feature-item">
+                            <div class="feature-icon">🚗</div>
+                            <div class="feature-text">
+                                <h3>On my way ping <span class="phase-badge v1">Phase 1</span></h3>
+                                <p>Auto-detect when partner moves toward you. Notification: "Rahul is heading your way 💛"</p>
+                            </div>
+                        </div>
+
+                        <div class="feature-item">
+                            <div class="feature-icon">🏠</div>
+                            <div class="feature-text">
+                                <h3>Safe zones <span class="phase-badge v2">Phase 2</span></h3>
+                                <p>Mark Home, Office, College. Get gentle notifications when they arrive: "Priya reached home safely 💚"</p>
+                            </div>
+                        </div>
+
+                        <div class="feature-item">
+                            <div class="feature-icon">📊</div>
+                            <div class="feature-text">
+                                <h3>Distance milestones <span class="phase-badge v2">Phase 2</span></h3>
+                                <p>"You've been 500km apart this month!" + "You met 12 times this week" — gamification hooks.</p>
+                            </div>
+                        </div>
+
+                        <div class="feature-item">
+                            <div class="feature-icon">⏸️</div>
+                            <div class="feature-text">
+                                <h3>Pause/ghost mode <span class="phase-badge v1">Phase 1</span></h3>
+                                <p>Clearly labeled on both sides. Privacy-first = trust. No sneaky spying.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h2 style="margin-top: 24px;">⚡ Real-time Stack</h2>
+                    <div style="background: #f3f4f6; padding: 16px; border-radius: 12px; font-size: 13px; font-family: monospace; line-height: 1.8;">
+                        <strong>Frontend:</strong> Geolocation.watchPosition() → Socket.io emit<br>
+                        <strong>Backend:</strong> Socket rooms per couple, broadcast deltas<br>
+                        <strong>Map:</strong> Leaflet (lightweight, custom styling)<br>
+                        <strong>DB:</strong> MongoDB Location model w/ 2dsphere index<br>
+                        <strong>Animations:</strong> Reuse Framer Motion from MoodTracker
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- FEATURES BREAKDOWN -->
+        <div id="features" class="section">
+            <div style="background: white; padding: 30px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                <h2 style="margin-bottom: 24px; font-size: 20px;">📋 Feature Matrix</h2>
+
+                <table style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr style="background: #f9fafb; border-bottom: 2px solid #e5e7eb;">
+                            <th style="padding: 12px; text-align: left; font-weight: 600; color: #111;">Feature</th>
+                            <th style="padding: 12px; text-align: left; font-weight: 600; color: #111;">Phase</th>
+                            <th style="padding: 12px; text-align: left; font-weight: 600; color: #111;">Stickiness</th>
+                            <th style="padding: 12px; text-align: left; font-weight: 600; color: #111;">Tech</th>
+                            <th style="padding: 12px; text-align: left; font-weight: 600; color: #111;">Effort</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr style="border-bottom: 1px solid #e5e7eb;">
+                            <td style="padding: 12px;">Real-time dot on map</td>
+                            <td style="padding: 12px;"><span class="phase-badge v1">Phase 1</span></td>
+                            <td style="padding: 12px; color: #d97706;">⭐⭐</td>
+                            <td style="padding: 12px; font-size: 12px;">watchPosition + Socket.io</td>
+                            <td style="padding: 12px; font-weight: 600; color: #166534;">Low</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #e5e7eb;">
+                            <td style="padding: 12px;">Live distance (km)</td>
+                            <td style="padding: 12px;"><span class="phase-badge v1">Phase 1</span></td>
+                            <td style="padding: 12px; color: #d97706;">⭐⭐⭐</td>
+                            <td style="padding: 12px; font-size: 12px;">Haversine formula</td>
+                            <td style="padding: 12px; font-weight: 600; color: #166534;">Low</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #e5e7eb;">
+                            <td style="padding: 12px;">Last seen + battery %</td>
+                            <td style="padding: 12px;"><span class="phase-badge v1">Phase 1</span></td>
+                            <td style="padding: 12px; color: #d97706;">⭐⭐⭐</td>
+                            <td style="padding: 12px; font-size: 12px;">Battery API, timestamp</td>
+                            <td style="padding: 12px; font-weight: 600; color: #166534;">Low</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #e5e7eb;">
+                            <td style="padding: 12px;"><strong>🤗 Send a hug</strong></td>
+                            <td style="padding: 12px;"><span class="phase-badge v1">Phase 1</span></td>
+                            <td style="padding: 12px; color: #059669; font-weight: 600;">⭐⭐⭐⭐⭐</td>
+                            <td style="padding: 12px; font-size: 12px;">Socket event + haptic</td>
+                            <td style="padding: 12px; font-weight: 600; color: #059669;">Very Low</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #e5e7eb;">
+                            <td style="padding: 12px;"><strong>🎉 Arrival celebration</strong></td>
+                            <td style="padding: 12px;"><span class="phase-badge v1">Phase 1</span></td>
+                            <td style="padding: 12px; color: #059669; font-weight: 600;">⭐⭐⭐⭐⭐</td>
+                            <td style="padding: 12px; font-size: 12px;">Geofence (500m) + confetti</td>
+                            <td style="padding: 12px; font-weight: 600; color: #166534;">Low</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #e5e7eb;">
+                            <td style="padding: 12px;"><strong>📍 On my way ping</strong></td>
+                            <td style="padding: 12px;"><span class="phase-badge v1">Phase 1</span></td>
+                            <td style="padding: 12px; color: #059669; font-weight: 600;">⭐⭐⭐⭐</td>
+                            <td style="padding: 12px; font-size: 12px;">Bearing + speed detection</td>
+                            <td style="padding: 12px; font-weight: 600; color: #ea580c;">Medium</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #e5e7eb;">
+                            <td style="padding: 12px;">Safe zones (Home, Office, etc.)</td>
+                            <td style="padding: 12px;"><span class="phase-badge v2">Phase 2</span></td>
+                            <td style="padding: 12px; color: #d97706;">⭐⭐⭐</td>
+                            <td style="padding: 12px; font-size: 12px;">Geofence + enter/exit events</td>
+                            <td style="padding: 12px; font-weight: 600; color: #ea580c;">Medium</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #e5e7eb;">
+                            <td style="padding: 12px;">ETA auto-calc</td>
+                            <td style="padding: 12px;"><span class="phase-badge v2">Phase 2</span></td>
+                            <td style="padding: 12px; color: #d97706;">⭐⭐⭐</td>
+                            <td style="padding: 12px; font-size: 12px;">Google Directions API</td>
+                            <td style="padding: 12px; font-weight: 600; color: #dc2626;">High</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #e5e7eb;">
+                            <td style="padding: 12px;">Movement trail (history)</td>
+                            <td style="padding: 12px;"><span class="phase-badge optional">Phase 3</span></td>
+                            <td style="padding: 12px; color: #6b7280;">⭐⭐</td>
+                            <td style="padding: 12px; font-size: 12px;">Polyline rendering</td>
+                            <td style="padding: 12px; font-weight: 600; color: #ea580c;">Medium</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 12px;">Heart pins (memory markers)</td>
+                            <td style="padding: 12px;"><span class="phase-badge optional">Phase 3</span></td>
+                            <td style="padding: 12px; color: #6b7280;">⭐⭐</td>
+                            <td style="padding: 12px; font-size: 12px;">Custom Leaflet markers</td>
+                            <td style="padding: 12px; font-weight: 600; color: #166534;">Low</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div style="background: #fef3c7; border-left: 4px solid #fcd34d; padding: 16px; border-radius: 8px; margin-top: 24px; font-size: 13px;">
+                    <strong>💡 Recommendation:</strong> Start with Phase 1 (rows 1–6). These are quick wins that deliver immediate stickiness. Phase 2 (safe zones + ETA) adds trust. Phase 3 (trails + pins) are long-term retention features.
+                </div>
+            </div>
+        </div>
+
+        <!-- INTERACTION FLOWS -->
+        <div id="flows" class="section">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+                <div style="background: white; padding: 24px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                    <h3 style="margin-bottom: 16px; font-size: 16px; font-weight: 700;">🎯 "Send a Hug" Flow</h3>
+                    <div class="flow-diagram">
+                        <div class="flow-step">
+                            <div class="flow-number">1</div>
+                            <div class="flow-text">User taps "Send Hug" button on map</div>
+                        </div>
+                        <div class="flow-step">
+                            <div class="flow-arrow">↓</div>
+                        </div>
+                        <div class="flow-step">
+                            <div class="flow-number">2</div>
+                            <div class="flow-text">Button animates (scale + color pulse)</div>
+                        </div>
+                        <div class="flow-step">
+                            <div class="flow-arrow">↓</div>
+                        </div>
+                        <div class="flow-step">
+                            <div class="flow-number">3</div>
+                            <div class="flow-text">Socket.io emits "hug:send" event to partner</div>
+                        </div>
+                        <div class="flow-step">
+                            <div class="flow-arrow">↓</div>
+                        </div>
+                        <div class="flow-step">
+                            <div class="flow-number">4</div>
+                            <div class="flow-text">Partner receives haptic feedback + toast</div>
+                        </div>
+                        <div class="flow-step">
+                            <div class="flow-arrow">↓</div>
+                        </div>
+                        <div class="flow-step">
+                            <div class="flow-number">5</div>
+                            <div class="flow-text">Heart animation plays on their map view</div>
+                        </div>
+                        <div class="flow-step">
+                            <div class="flow-arrow">↓</div>
+                        </div>
+                        <div class="flow-step">
+                            <div class="flow-number">6</div>
+                            <div class="flow-text">Logged to relationship "activity feed" (optional)</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="background: white; padding: 24px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                    <h3 style="margin-bottom: 16px; font-size: 16px; font-weight: 700;">🎉 "Arrival Celebration" Flow</h3>
+                    <div class="flow-diagram">
+                        <div class="flow-step">
+                            <div class="flow-number">1</div>
+                            <div class="flow-text">Partner location updates via Socket.io</div>
+                        </div>
+                        <div class="flow-step">
+                            <div class="flow-arrow">↓</div>
+                        </div>
+                        <div class="flow-step">
+                            <div class="flow-number">2</div>
+                            <div class="flow-text">Backend calculates distance between partners</div>
+                        </div>
+                        <div class="flow-step">
+                            <div class="flow-arrow">↓</div>
+                        </div>
+                        <div class="flow-step">
+                            <div class="flow-number">3</div>
+                            <div class="flow-text">If distance < 500m → trigger "arrival"</div>
+                        </div>
+                        <div class="flow-step">
+                            <div class="flow-arrow">↓</div>
+                        </div>
+                        <div class="flow-step">
+                            <div class="flow-number">4</div>
+                            <div class="flow-text">Socket emits "arrival:celebrate" to BOTH</div>
+                        </div>
+                        <div class="flow-step">
+                            <div class="flow-arrow">↓</div>
+                        </div>
+                        <div class="flow-step">
+                            <div class="flow-number">5</div>
+                            <div class="flow-text">Confetti animation (5–8 sec) on both maps</div>
+                        </div>
+                        <div class="flow-step">
+                            <div class="flow-arrow">↓</div>
+                        </div>
+                        <div class="flow-step">
+                            <div class="flow-number">6</div>
+                            <div class="flow-text">Toast: "She's here! 💛" + haptic</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="background: white; padding: 24px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                    <h3 style="margin-bottom: 16px; font-size: 16px; font-weight: 700;">🚗 "On My Way" Detection</h3>
+                    <div class="flow-diagram">
+                        <div class="flow-step">
+                            <div class="flow-number">1</div>
+                            <div class="flow-text">Continuous location updates from partner</div>
+                        </div>
+                        <div class="flow-step">
+                            <div class="flow-arrow">↓</div>
+                        </div>
+                        <div class="flow-step">
+                            <div class="flow-number">2</div>
+                            <div class="flow-text">Calculate bearing (direction) & speed</div>
+                        </div>
+                        <div class="flow-step">
+                            <div class="flow-arrow">↓</div>
+                        </div>
+                        <div class="flow-step">
+                            <div class="flow-number">3</div>
+                            <div class="flow-text">If bearing toward you + speed > 5km/h = moving</div>
+                        </div>
+                        <div class="flow-step">
+                            <div class="flow-arrow">↓</div>
+                        </div>
+                        <div class="flow-step">
+                            <div class="flow-number">4</div>
+                            <div class="flow-text">If moving for > 30sec toward you → notify</div>
+                        </div>
+                        <div class="flow-step">
+                            <div class="flow-arrow">↓</div>
+                        </div>
+                        <div class="flow-step">
+                            <div class="flow-number">5</div>
+                            <div class="flow-text">Toast: "Rahul is heading your way 💛" + sound</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="background: white; padding: 24px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                    <h3 style="margin-bottom: 16px; font-size: 16px; font-weight: 700;">⏸️ Privacy Toggle (Pause Mode)</h3>
+                    <div class="flow-diagram">
+                        <div class="flow-step">
+                            <div class="flow-number">1</div>
+                            <div class="flow-text">User taps "Pause" on map or settings</div>
+                        </div>
+                        <div class="flow-step">
+                            <div class="flow-arrow">↓</div>
+                        </div>
+                        <div class="flow-step">
+                            <div class="flow-number">2</div>
+                            <div class="flow-text">Stop sending location updates to partner</div>
+                        </div>
+                        <div class="flow-step">
+                            <div class="flow-arrow">↓</div>
+                        </div>
+                        <div class="flow-step">
+                            <div class="flow-number">3</div>
+                            <div class="flow-text">Show "⏸️ Sharing paused" badge on BOTH screens</div>
+                        </div>
+                        <div class="flow-step">
+                            <div class="flow-arrow">↓</div>
+                        </div>
+                        <div class="flow-step">
+                            <div class="flow-number">4</div>
+                            <div class="flow-text">Partner sees last position + timestamp ("10 mins ago")</div>
+                        </div>
+                        <div class="flow-step">
+                            <div class="flow-arrow">↓</div>
+                        </div>
+                        <div class="flow-step">
+                            <div class="flow-number">5</div>
+                            <div class="flow-text">Auto-resume in 12 hrs OR manual tap to resume</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PRIVACY STATES -->
+        <div id="states" class="section">
+            <div style="background: white; padding: 30px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                <h2 style="margin-bottom: 24px; font-size: 20px;">🔐 Trust & Privacy States</h2>
+
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;">
+                    <!-- State 1 -->
+                    <div style="border: 2px solid #dbeafe; border-radius: 12px; padding: 20px; background: #f0f9ff;">
+                        <h3 style="font-size: 16px; font-weight: 700; color: #0369a1; margin-bottom: 12px;">✅ Both Active</h3>
+                        <p style="font-size: 13px; color: #334155; line-height: 1.6; margin-bottom: 16px;">Both partners sharing live location. Real-time map fully functional. All features enabled.</p>
+                        <div style="background: white; padding: 12px; border-radius: 8px; font-size: 12px; font-family: monospace; color: #0369a1; font-weight: 600;">
+                            ✓ Distance calc<br>
+                            ✓ Hug button<br>
+                            ✓ Arrival notify<br>
+                            ✓ ETA share
+                        </div>
+                    </div>
+
+                    <!-- State 2 -->
+                    <div style="border: 2px solid #fce7f3; border-radius: 12px; padding: 20px; background: #fdf2f8;">
+                        <h3 style="font-size: 16px; font-weight: 700; color: #be185d; margin-bottom: 12px;">⏸️ One Paused</h3>
+                        <p style="font-size: 13px; color: #334155; line-height: 1.6; margin-bottom: 16px;">One partner paused sharing. Map shows "⏸️ Paused" badge. Last position visible with timestamp.</p>
+                        <div style="background: white; padding: 12px; border-radius: 8px; font-size: 12px; font-family: monospace; color: #be185d; font-weight: 600;">
+                            ✗ Real-time updates<br>
+                            ✗ Hug button<br>
+                            ✓ Last seen<br>
+                            ✓ Message/call
+                        </div>
+                    </div>
+
+                    <!-- State 3 -->
+                    <div style="border: 2px solid #fecaca; border-radius: 12px; padding: 20px; background: #fef2f2;">
+                        <h3 style="font-size: 16px; font-weight: 700; color: #991b1b; margin-bottom: 12px;">🚫 Neither Sharing</h3>
+                        <p style="font-size: 13px; color: #334155; line-height: 1.6; margin-bottom: 16px;">Feature inactive. Map grayed out. Prompt to enable location sharing.</p>
+                        <div style="background: white; padding: 12px; border-radius: 8px; font-size: 12px; font-family: monospace; color: #991b1b; font-weight: 600;">
+                            ✗ All location features<br>
+                            ✓ Message/call<br>
+                            ✓ Settings
+                        </div>
+                    </div>
+                </div>
+
+                <h3 style="margin-top: 30px; margin-bottom: 16px; font-size: 16px; font-weight: 700;">🔒 Key Privacy Rules</h3>
+                <div style="display: grid; gap: 12px;">
+                    <div style="background: #f9fafb; padding: 16px; border-left: 4px solid #059669; border-radius: 8px;">
+                        <p style="font-size: 13px; font-weight: 600; color: #166534; margin-bottom: 4px;">✓ Explicit dual consent</p>
+                        <p style="font-size: 12px; color: #666;">Both partners must independently toggle "Share my location" ON. One-sided sharing is never visible.</p>
+                    </div>
+                    <div style="background: #f9fafb; padding: 16px; border-left: 4px solid #059669; border-radius: 8px;">
+                        <p style="font-size: 13px; font-weight: 600; color: #166534; margin-bottom: 4px;">✓ Transparent pause</p>
+                        <p style="font-size: 12px; color: #666;">When one pauses, BOTH screens show "⏸️ Sharing paused" immediately. No hidden sharing.</p>
+                    </div>
+                    <div style="background: #f9fafb; padding: 16px; border-left: 4px solid #059669; border-radius: 8px;">
+                        <p style="font-size: 13px; font-weight: 600; color: #166534; margin-bottom: 4px;">✓ Auto-delete history</p>
+                        <p style="font-size: 12px; color: #666;">Trail data + location history auto-purge after 48 hours (user-configurable: 24/48/7 days).</p>
+                    </div>
+                    <div style="background: #f9fafb; padding: 16px; border-left: 4px solid #059669; border-radius: 8px;">
+                        <p style="font-size: 13px; font-weight: 600; color: #166534; margin-bottom: 4px;">✓ No geo-spam</p>
+                        <p style="font-size: 12px; color: #666;">Notifications throttled: "on my way" only once per session. Arrival celebrate only once per meeting. Prevent notification fatigue.</p>
+                    </div>
+                </div>
+
+                <h3 style="margin-top: 30px; margin-bottom: 16px; font-size: 16px; font-weight: 700;">⚠️ Edge Cases to Handle</h3>
+                <table style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr style="background: #f9fafb; border-bottom: 2px solid #e5e7eb;">
+                            <th style="padding: 12px; text-align: left; font-weight: 600; color: #111;">Scenario</th>
+                            <th style="padding: 12px; text-align: left; font-weight: 600; color: #111;">Behavior</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr style="border-bottom: 1px solid #e5e7eb;">
+                            <td style="padding: 12px;">Location permission denied</td>
+                            <td style="padding: 12px; font-size: 12px;">Show prompt: "Re-enable in Settings" + fallback to manual location input</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #e5e7eb;">
+                            <td style="padding: 12px;">No internet connection</td>
+                            <td style="padding: 12px; font-size: 12px;">Store location locally, sync when connection restored</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #e5e7eb;">
+                            <td style="padding: 12px;">Signal lost in tunnel</td>
+                            <td style="padding: 12px; font-size: 12px;">Show last known position + "Last seen 5 mins ago" (don't assume they moved)</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #e5e7eb;">
+                            <td style="padding: 12px;">Low battery (<10%)</td>
+                            <td style="padding: 12px; font-size: 12px;">Auto-pause location sharing + notify partner "Battery too low, paused"</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 12px;">Account deletion</td>
+                            <td style="padding: 12px; font-size: 12px;">All location history auto-deleted. Partner sees "Account deleted" message.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function switchTab(tabName) {
+            // Hide all sections
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            // Remove active from all tabs
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            
+            // Show selected section
+            document.getElementById(tabName).classList.add('active');
+            // Mark tab active
+            event.target.classList.add('active');
+        }
+    </script>
+</body>
+</html>

@@ -5,6 +5,7 @@ const jwt     = require('jsonwebtoken');
 const crypto  = require('crypto');
 const User    = require('../models/User');
 const PartnerInvite = require('../models/PartnerInvite');
+const { seedWelcomeNotification, createNotification } = require('./notifications');
 require('../config/firebase'); // Runs the initialisation
 const { getAuth } = require('firebase-admin/auth');
 const { getApps } = require('firebase-admin/app');
@@ -97,6 +98,9 @@ router.post(
 
       const hashedPassword = await bcrypt.hash(password, 12);
       const user = await User.create({ name: name.trim(), email, password: hashedPassword });
+
+      // Seed welcome notification
+      await seedWelcomeNotification(user._id);
 
       // Issue tokens immediately on register
       const accessToken  = generateAccessToken(user._id);
@@ -198,6 +202,9 @@ router.post(
           password: hashedPassword,
           avatarUrl: picture || ''
         });
+
+        // Seed welcome notification for new social login user
+        await seedWelcomeNotification(user._id);
       } else if (!user.avatarUrl && picture) {
          // Optionally update avatar if they didn't have one
          await User.findByIdAndUpdate(user._id, { avatarUrl: picture });
@@ -476,6 +483,20 @@ router.post('/invites/accept', protect, inviteAcceptLimiter, inviteCodeRules, va
       { $set: { status: 'revoked', revokedAt: new Date() } }
     );
 
+    // Create notifications for both partners
+    await Promise.all([
+      createNotification(updatedInvitee._id, {
+        title: 'Partner connected! 💑',
+        message: `You are now linked with ${inviterFresh.name || 'your partner'}. You can now share memories and messages!`,
+        type: 'partner_linked'
+      }),
+      createNotification(updatedInviter._id, {
+        title: 'Partner connected! 💑',
+        message: `You are now linked with ${updatedInvitee.name || 'your partner'}. You can now share memories and messages!`,
+        type: 'partner_linked'
+      })
+    ]);
+
     res.json({
       message: 'Partner linked successfully',
       partnerId: updatedInviter._id,
@@ -502,6 +523,20 @@ router.post('/link-partner', protect, linkPartnerRules, validate, async (req, re
 
     await User.findByIdAndUpdate(req.user._id, { partnerId: partner._id });
     await User.findByIdAndUpdate(partner._id, { partnerId: req.user._id });
+
+    // Create notifications for both partners
+    await Promise.all([
+      createNotification(req.user._id, {
+        title: 'Partner connected! 💑',
+        message: `You are now linked with ${partner.name || 'your partner'}. You can now share memories and messages!`,
+        type: 'partner_linked'
+      }),
+      createNotification(partner._id, {
+        title: 'Partner connected! 💑',
+        message: `You are now linked with ${req.user.name || 'your partner'}. You can now share memories and messages!`,
+        type: 'partner_linked'
+      })
+    ]);
 
     res.json({ message: 'Partner linked successfully', partnerId: partner._id, partnerName: partner.name });
   } catch (err) {

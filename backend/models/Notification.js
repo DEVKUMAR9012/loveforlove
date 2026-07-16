@@ -19,7 +19,7 @@ const notificationSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['welcome', 'partner_linked', 'memory', 'mood', 'message', 'voice', 'calendar', 'general'],
+    enum: ['welcome', 'partner_linked', 'memory', 'mood', 'message', 'voice', 'calendar', 'general', 'snap'],
     default: 'general',
   },
   isRead: {
