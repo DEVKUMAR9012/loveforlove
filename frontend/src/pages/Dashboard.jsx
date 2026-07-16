@@ -68,14 +68,16 @@ function Dashboard() {
     }
   };
 
+  // Widget accents pull from the loveforlove brand ramp (rose -> coral -> amber)
+  // plus a few complementary tones, mirroring the palette used on Login/About.
   const widgets = [
-    { title: 'My Gallery', icon: HiOutlinePhotograph, path: '/gallery', color: 'text-blush-500', bg: 'from-blush-50 to-pink-50', desc: 'Photos & memories' },
+    { title: 'My Gallery', icon: HiOutlinePhotograph, path: '/gallery', color: 'text-[#ee2a7b]', bg: 'from-rose-50 to-pink-50', desc: 'Photos & memories' },
     { title: 'Calendar', icon: HiOutlineCalendar, path: '/calendar', color: 'text-sky-500', bg: 'from-sky-50 to-blue-50', desc: 'Important dates' },
-    { title: 'Mood Journal', icon: HiOutlineHeart, path: '/mood', color: 'text-rose-400', bg: 'from-rose-50 to-pink-50', desc: 'Track your feelings' },
-    { title: 'Snap', icon: HiOutlineCamera, path: '/snap', color: 'text-violet-500', bg: 'from-violet-50 to-purple-50', desc: 'Camera selfies' },
-    { title: 'Voice Notes', icon: HiOutlineMicrophone, path: '/voice', color: 'text-amber-500', bg: 'from-amber-50 to-yellow-50', desc: 'Record your voice' },
+    { title: 'Mood Journal', icon: HiOutlineHeart, path: '/mood', color: 'text-[#f26e4e]', bg: 'from-orange-50 to-rose-50', desc: 'Track your feelings' },
+    { title: 'Snap', icon: HiOutlineCamera, path: '/snap', color: 'text-purple-500', bg: 'from-purple-50 to-violet-50', desc: 'Camera selfies' },
+    { title: 'Voice Notes', icon: HiOutlineMicrophone, path: '/voice', color: 'text-[#f9ce34]', bg: 'from-amber-50 to-yellow-50', desc: 'Record your voice' },
     { title: 'Messages', icon: HiOutlinePencilAlt, path: '/messages', color: 'text-teal-500', bg: 'from-teal-50 to-emerald-50', desc: 'Notes & letters' },
-    { title: user?.partnerId ? 'Partner Linked' : 'Invite Partner', icon: HiOutlineUserAdd, path: '/invite', color: 'text-mint-500', bg: 'from-mint-50 to-emerald-50', desc: user?.partnerId ? 'Connected' : 'Share a code' },
+    { title: user?.partnerId ? 'Partner Linked' : 'Invite Partner', icon: HiOutlineUserAdd, path: '/invite', color: 'text-emerald-500', bg: 'from-emerald-50 to-teal-50', desc: user?.partnerId ? 'Connected' : 'Share a code' },
   ];
 
   const greetingEmoji = () => {
@@ -96,26 +98,30 @@ function Dashboard() {
     >
       {/* Hero Section */}
       <div className="glass p-8 md:p-12 rounded-[2rem] shadow-sm mb-8 relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blush-400 via-white to-sky-400" />
+        <div
+          className="absolute top-0 left-0 w-full h-2"
+          style={{ background: 'linear-gradient(90deg, #ee2a7b, #f26e4e, #f9ce34)' }}
+        />
         {/* Avatar bubble */}
         <div className="flex items-center gap-4 mb-4">
-          <input 
-            type="file" 
-            accept="image/*" 
-            className="hidden" 
-            ref={fileInputRef} 
-            onChange={handleAvatarChange} 
+          <input
+            type="file"
+            accept="image/*"
+            className="hidden"
+            ref={fileInputRef}
+            onChange={handleAvatarChange}
           />
-          <div 
+          <div
             onClick={handleAvatarClick}
-            className="relative w-14 h-14 rounded-full bg-gradient-to-br from-blush-300 to-sky-300 flex items-center justify-center text-2xl font-bold text-white shadow-md select-none cursor-pointer group overflow-hidden border-2 border-white/50"
+            className="relative w-14 h-14 rounded-full flex items-center justify-center text-2xl font-bold text-white shadow-md select-none cursor-pointer group overflow-hidden border-2 border-white/50"
+            style={{ background: 'linear-gradient(135deg, #ee2a7b, #f9ce34)' }}
           >
             {user?.avatarUrl ? (
               <img src={user.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
             ) : (
               user?.name ? user.name[0].toUpperCase() : '?'
             )}
-            
+
             {uploadingAvatar ? (
               <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
                 <div className="w-4 h-4 border-2 border-white/50 border-t-white rounded-full animate-spin" />
@@ -131,19 +137,24 @@ function Dashboard() {
           </div>
         </div>
         {avatarNotice && (
-          <div className={`mb-4 rounded-2xl px-4 py-3 text-sm font-medium ${
-            avatarNotice.type === 'error'
-              ? 'bg-red-50 text-red-600'
-              : 'bg-mint-50 text-mint-700'
-          }`}>
+          <div className={`mb-4 rounded-2xl px-4 py-3 text-sm font-medium ${avatarNotice.type === 'error'
+            ? 'bg-red-50 text-red-600'
+            : 'bg-emerald-50 text-emerald-700'
+            }`}>
             {avatarNotice.text}
           </div>
         )}
-        <h1 className="text-3xl md:text-5xl font-bold text-gray-800 mb-3">
-          {greetingEmoji()} Hello, <span className="text-blush-500">{firstName}</span>!
+        <h1 className="text-3xl md:text-5xl font-bold text-[#8b1c31] mb-3">
+          {greetingEmoji()} Hello,{' '}
+          <span
+            className="bg-clip-text text-transparent"
+            style={{ backgroundImage: 'linear-gradient(90deg, #ee2a7b, #f26e4e, #f9ce34)' }}
+          >
+            {firstName}
+          </span>!
         </h1>
         <p className="text-gray-500 text-lg max-w-xl">
-          Welcome
+          Welcome back to your space.
         </p>
       </div>
 
@@ -162,7 +173,7 @@ function Dashboard() {
             <div className={`p-3 rounded-xl bg-white/70 inline-block mb-3 shadow-sm group-hover:scale-110 transition-transform ${widget.color}`}>
               <widget.icon className="text-2xl" />
             </div>
-            <h2 className="text-sm font-bold text-gray-800">{widget.title}</h2>
+            <h2 className="text-sm font-bold text-[#8b1c31]">{widget.title}</h2>
             <p className="text-xs text-gray-400 mt-0.5">{widget.desc}</p>
           </motion.div>
         ))}
@@ -175,8 +186,8 @@ function Dashboard() {
         transition={{ delay: 0.5 }}
         className="glass p-8 rounded-[2rem] shadow-sm"
       >
-        <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-          <HiOutlinePhotograph className="text-blush-500" /> Recent Memories
+        <h2 className="text-2xl font-bold text-[#8b1c31] mb-6 flex items-center gap-2">
+          <HiOutlinePhotograph className="text-[#ee2a7b]" /> Recent Memories
         </h2>
 
         {recentMemories.length === 0 ? (
@@ -188,7 +199,7 @@ function Dashboard() {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.97 }}
               onClick={() => navigate('/gallery')}
-              className="mt-4 px-5 py-2 rounded-xl bg-blush-100 text-blush-600 text-sm font-semibold hover:bg-blush-200 transition"
+              className="mt-4 px-5 py-2 rounded-xl bg-rose-100 text-[#ee2a7b] text-sm font-semibold hover:bg-rose-200 transition"
             >
               Open Gallery →
             </motion.button>
@@ -211,7 +222,7 @@ function Dashboard() {
                     className="w-12 h-12 rounded-xl object-cover shadow-sm group-hover:scale-105 transition-transform"
                   />
                 ) : (
-                  <div className="w-12 h-12 rounded-xl bg-blush-100 flex items-center justify-center text-xl">
+                  <div className="w-12 h-12 rounded-xl bg-rose-100 flex items-center justify-center text-xl">
                     📸
                   </div>
                 )}
@@ -237,7 +248,8 @@ function Dashboard() {
         animate={{ opacity: 1, scale: 1 }}
         transition={{ delay: 0.8, type: 'spring', stiffness: 200 }}
         title="Report an issue"
-        className="fixed bottom-24 right-5 z-50 w-14 h-14 rounded-full bg-gradient-to-br from-blush-400 to-sky-400 shadow-lg flex items-center justify-center text-white hover:shadow-xl transition-shadow group"
+        className="fixed bottom-24 right-5 z-50 w-14 h-14 rounded-full shadow-lg flex items-center justify-center text-white hover:shadow-xl transition-shadow group"
+        style={{ background: 'linear-gradient(135deg, #ee2a7b, #f9ce34)' }}
       >
         <HiOutlineExclamationCircle className="text-2xl group-hover:rotate-12 transition-transform" />
       </motion.button>
