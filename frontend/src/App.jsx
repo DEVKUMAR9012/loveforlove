@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import Login from './pages/Login';
+import About from './pages/About';
 import Invite from './pages/Invite';
 import Dashboard from './pages/Dashboard';
 import Layout from './components/layout/Layout';
@@ -40,6 +41,10 @@ function App() {
             <Route
               path="/login"
               element={<Guarded><Login /></Guarded>}
+            />
+            <Route
+              path="/about"
+              element={<Guarded><About /></Guarded>}
             />
             <Route
               path="/invite"

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { FcGoogle } from 'react-icons/fc';
@@ -61,30 +61,70 @@ function Login() {
     },
   ];
 
-  // SVG for the Infinity Heart Logo
+  // SVG for the Woven Infinity-Heart Logo
+  // Two ribbon strands cross near the top cleft (like an infinity loop),
+  // each looping into the opposite hump, then descending to a shared point.
   const LogoSVG = ({ className }) => (
-    <svg viewBox="0 0 100 100" className={className} xmlns="http://www.w3.org/2000/svg">
+    <svg viewBox="0 0 200 200" className={className} xmlns="http://www.w3.org/2000/svg">
       <defs>
         <linearGradient id="logoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stopColor="#ee2a7b" />
           <stop offset="50%" stopColor="#f26e4e" />
           <stop offset="100%" stopColor="#f9ce34" />
         </linearGradient>
+        <linearGradient id="logoGradientSoft" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#ee2a7b" stopOpacity="0.85" />
+          <stop offset="50%" stopColor="#f26e4e" stopOpacity="0.85" />
+          <stop offset="100%" stopColor="#f9ce34" stopOpacity="0.85" />
+        </linearGradient>
       </defs>
-      <path 
-        d="M50,85 C20,55 10,40 10,25 C10,10 25,5 35,15 L50,30 L65,15 C75,5 90,10 90,25 C90,40 80,55 50,85 Z" 
-        fill="none" 
-        stroke="url(#logoGradient)" 
-        strokeWidth="14" 
-        strokeLinecap="round" 
+
+      {/* Back strand: starts left of the cleft, loops up into the RIGHT hump,
+          then sweeps down the outer-right edge to the shared bottom point */}
+      <path
+        d="M90,58 C95,33 115,14 150,17 C182,20 186,54 168,75 C150,98 122,136 100,180"
+        fill="none"
+        stroke="url(#logoGradientSoft)"
+        strokeWidth="22"
+        strokeLinecap="round"
         strokeLinejoin="round"
+      />
+
+      {/* Front strand: starts right of the cleft, loops up into the LEFT hump,
+          then sweeps down the outer-left edge to the shared bottom point.
+          Drawn second so it appears to weave over the back strand at the cleft. */}
+      <path
+        d="M110,58 C105,33 85,14 50,17 C18,20 14,54 32,75 C50,98 78,136 100,180"
+        fill="none"
+        stroke="url(#logoGradient)"
+        strokeWidth="22"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+
+      {/* Subtle gloss highlight along the top of each hump for depth */}
+      <path
+        d="M100,42 C108,26 126,18 148,20"
+        fill="none"
+        stroke="#ffffff"
+        strokeOpacity="0.35"
+        strokeWidth="5"
+        strokeLinecap="round"
+      />
+      <path
+        d="M100,42 C92,26 74,18 52,20"
+        fill="none"
+        stroke="#ffffff"
+        strokeOpacity="0.35"
+        strokeWidth="5"
+        strokeLinecap="round"
       />
     </svg>
   );
 
   return (
     <div className="min-h-screen bg-white relative overflow-hidden font-sans">
-      
+
       {/* Navbar */}
       <nav className="flex items-center justify-between px-8 py-6 max-w-7xl mx-auto w-full z-10 relative">
         <div className="flex items-center gap-2">
@@ -92,9 +132,9 @@ function Login() {
           <span className="text-[#8b1c31] font-bold text-2xl tracking-tight">loveforlove</span>
         </div>
         <div className="hidden md:flex items-center gap-8">
-          <a href="#" className="text-gray-600 hover:text-gray-900 font-medium">Home</a>
-          <a href="#" className="text-gray-600 hover:text-gray-900 font-medium">About</a>
-          <button 
+          <Link to="/" className="text-gray-600 hover:text-gray-900 font-medium">Home</Link>
+          <Link to="/about" className="text-gray-600 hover:text-gray-900 font-medium">About</Link>
+          <button
             onClick={() => setShowLoginOptions(true)}
             className="px-6 py-2 rounded-full text-white font-medium bg-gradient-to-r from-[#ee2a7b] to-[#f9ce34] hover:opacity-90 transition-opacity"
           >
@@ -118,7 +158,7 @@ function Login() {
           <p className="text-xl md:text-2xl text-gray-700 font-medium mb-12">
             Your Connection, Everlasting.
           </p>
-          <button 
+          <button
             onClick={() => setShowLoginOptions(true)}
             className="px-10 py-4 rounded-full text-white font-bold text-xl shadow-lg bg-gradient-to-r from-[#ee2a7b] to-[#f9ce34] hover:scale-105 transition-transform"
           >
@@ -142,13 +182,13 @@ function Login() {
               exit={{ opacity: 0, y: 20, scale: 0.95 }}
               className="bg-white p-8 rounded-3xl shadow-2xl w-full max-w-sm relative border border-gray-100"
             >
-              <button 
+              <button
                 onClick={() => setShowLoginOptions(false)}
                 className="absolute top-4 right-5 text-gray-400 hover:text-gray-600 text-2xl font-bold"
               >
                 &times;
               </button>
-              
+
               <div className="text-center mb-8">
                 <LogoSVG className="w-12 h-12 mx-auto mb-4" />
                 <h2 className="text-2xl font-bold text-[#8b1c31]">Sign in</h2>
@@ -195,4 +235,3 @@ function Login() {
 }
 
 export default Login;
-
