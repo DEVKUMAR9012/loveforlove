@@ -58,4 +58,15 @@ router.patch('/:id/status', protect, adminMiddleware, async (req, res) => {
   }
 });
 
+// DELETE /api/reports/:id — admin only: permanently delete a report
+router.delete('/:id', protect, adminMiddleware, async (req, res) => {
+  try {
+    const report = await Report.findByIdAndDelete(req.params.id);
+    if (!report) return res.status(404).json({ error: 'Report not found.' });
+    res.json({ message: 'Report deleted successfully.' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

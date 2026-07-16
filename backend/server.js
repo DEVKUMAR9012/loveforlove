@@ -17,7 +17,8 @@ const settingsRoutes = require('./routes/settings');
 const calendarRoutes = require('./routes/calendar');
 const snapsRoutes    = require('./routes/snaps');
 const aiRoutes       = require('./routes/ai');
-const reportsRoutes  = require('./routes/reports');
+const reportsRoutes       = require('./routes/reports');
+const notificationsRoutes = require('./routes/notifications');
 
 const app = express();
 
@@ -76,7 +77,8 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/calendar', calendarRoutes);
 app.use('/api/snaps',    snapsRoutes);
 app.use('/api/ai',       aiRoutes);
-app.use('/api/reports',  reportsRoutes);
+app.use('/api/reports',        reportsRoutes);
+app.use('/api/notifications',  notificationsRoutes);
 
 // ── 404 handler ───────────────────────────────────────────────────────────
 app.use((req, res) => {

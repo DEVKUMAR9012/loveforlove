@@ -64,4 +64,38 @@ router.delete('/users/:id', async (req, res) => {
   }
 });
 
+// PATCH /api/admin/users/:id - Update user fields (name, email, role)
+router.patch('/users/:id', async (req, res) => {
+  try {
+    const { name, email, role } = req.body;
+
+    // Build update object — only include provided fields
+    const updates = {};
+    if (name !== undefined) updates.name = String(name).trim().slice(0, 60);
+    if (email !== undefined) updates.email = String(email).trim().toLowerCase();
+    if (role !== undefined) {
+      if (!['user', 'admin'].includes(role)) {
+        return res.status(400).json({ error: 'Invalid role. Must be "user" or "admin".' });
+      }
+      updates.role = role;
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ error: 'No valid fields provided for update.' });
+    }
+
+    const updated = await User.findByIdAndUpdate(
+      req.params.id,
+      updates,
+      { new: true, select: '-password -refreshTokens' }
+    );
+
+    if (!updated) return res.status(404).json({ error: 'User not found.' });
+
+    res.json({ message: 'User updated successfully', user: updated });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

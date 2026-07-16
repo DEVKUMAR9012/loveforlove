@@ -1,20 +1,34 @@
 // vibecheck-disable SECAI006
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
+import { HiOutlineCamera, HiOutlinePencil, HiOutlineCheck, HiOutlineX } from 'react-icons/hi';
 
 function Settings() {
-  const { user, backendUrl, updateRelationshipDate } = useAuth();
-  const [date, setDate] = useState(() => 
+  const { user, backendUrl, updateRelationshipDate, updateAvatarUrl, updateName } = useAuth();
+
+  // ── Relationship date ──
+  const [date, setDate] = useState(() =>
     user?.relationshipStartDate ? new Date(user.relationshipStartDate).toISOString().split('T')[0] : ''
   );
-  const [isSaving, setIsSaving] = useState(false);
-  const [message, setMessage] = useState('');
+  const [isSavingDate, setIsSavingDate] = useState(false);
+  const [dateMsg, setDateMsg] = useState('');
+
+  // ── Avatar upload ──
+  const fileInputRef = useRef(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [avatarMsg, setAvatarMsg] = useState('');
+
+  // ── Name editing ──
+  const [editingName, setEditingName] = useState(false);
+  const [nameValue, setNameValue] = useState(user?.name || '');
+  const [savingName, setSavingName] = useState(false);
+  const [nameMsg, setNameMsg] = useState('');
 
   const handleSaveDate = async (e) => {
     e.preventDefault();
-    setIsSaving(true);
-    setMessage('');
+    setIsSavingDate(true);
+    setDateMsg('');
     try {
       const res = await fetch(`${backendUrl}/api/settings/relationship-date`, {
         method: 'PUT',
@@ -27,16 +41,70 @@ function Settings() {
       if (!res.ok) throw new Error('Failed to update date');
       const data = await res.json();
       updateRelationshipDate(data.relationshipStartDate);
-      setMessage('Anniversary date updated successfully! 🎉');
-    } catch (err) {
-      setMessage('Error updating date.');
+      setDateMsg('Anniversary date updated! 🎉');
+    } catch {
+      setDateMsg('Error updating date.');
     } finally {
-      setIsSaving(false);
+      setIsSavingDate(false);
+    }
+  };
+
+  const handleAvatarChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingAvatar(true);
+    setAvatarMsg('');
+    try {
+      const token = localStorage.getItem('token');
+      const formData = new FormData();
+      formData.append('avatar', file);
+      const res = await fetch(`${backendUrl}/api/settings/avatar`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      if (res.ok) {
+        const data = await res.json();
+        updateAvatarUrl(data.avatarUrl);
+        setAvatarMsg('Profile picture updated! 📸');
+      } else {
+        const err = await res.json().catch(() => ({}));
+        setAvatarMsg(`Failed: ${err.error || res.statusText}`);
+      }
+    } catch (err) {
+      setAvatarMsg(`Error: ${err.message}`);
+    } finally {
+      setUploadingAvatar(false);
+      e.target.value = null;
+    }
+  };
+
+  const handleSaveName = async () => {
+    if (!nameValue.trim()) return;
+    setSavingName(true);
+    setNameMsg('');
+    try {
+      const res = await fetch(`${backendUrl}/api/settings/profile`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: JSON.stringify({ name: nameValue.trim() }),
+      });
+      if (!res.ok) throw new Error('Failed to update name');
+      const data = await res.json();
+      updateName(data.name);
+      setNameMsg('Name updated! ✨');
+      setEditingName(false);
+    } catch {
+      setNameMsg('Error updating name.');
+    } finally {
+      setSavingName(false);
     }
   };
 
   const handleExport = () => {
-    // In a real app, this would trigger a download from a backend endpoint
     alert('This feature will compile all your memories and messages into a beautiful PDF in the future!');
   };
 
@@ -45,18 +113,18 @@ function Settings() {
     try {
       const res = await fetch(`${backendUrl}/api/settings/danger-zone`, {
         method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
-        },
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
       });
       if (res.ok) {
         alert('App has been reset.');
         window.location.reload();
       }
-    } catch (err) {
+    } catch {
       alert('Failed to reset app.');
     }
   };
+
+  const firstLetter = user?.name ? user.name[0].toUpperCase() : '?';
 
   return (
     <motion.div
@@ -66,6 +134,99 @@ function Settings() {
     >
       <h1 className="text-3xl font-bold text-gray-800 mb-8">Settings</h1>
 
+      {/* ── Profile Card ──────────────────────────────────────────────── */}
+      <div className="bg-white/60 p-6 rounded-[2rem] shadow-sm border border-white/80 mb-8">
+        <h2 className="text-xl font-semibold text-gray-800 mb-5">My Profile</h2>
+
+        {/* Avatar */}
+        <div className="flex flex-col sm:flex-row items-center gap-6 mb-6">
+          <div className="relative">
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              ref={fileInputRef}
+              onChange={handleAvatarChange}
+            />
+            <div
+              onClick={() => fileInputRef.current?.click()}
+              className="relative w-24 h-24 rounded-full flex items-center justify-center text-4xl font-bold text-white shadow-md select-none cursor-pointer group overflow-hidden border-4 border-white/70"
+              style={{ background: 'linear-gradient(135deg, #ee2a7b, #f9ce34)' }}
+            >
+              {user?.avatarUrl
+                ? <img src={user.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                : firstLetter
+              }
+              {uploadingAvatar ? (
+                <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                  <div className="w-5 h-5 border-2 border-white/50 border-t-white rounded-full animate-spin" />
+                </div>
+              ) : (
+                <div className="absolute inset-0 bg-black/25 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <HiOutlineCamera className="text-white text-2xl" />
+                </div>
+              )}
+            </div>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-white border border-gray-200 shadow-sm flex items-center justify-center text-[#ee2a7b] hover:bg-rose-50 transition"
+              title="Change photo"
+            >
+              <HiOutlineCamera className="text-sm" />
+            </button>
+          </div>
+
+          <div className="flex-1 min-w-0">
+            {/* Name field */}
+            {editingName ? (
+              <div className="flex items-center gap-2 mb-1">
+                <input
+                  autoFocus
+                  value={nameValue}
+                  onChange={(e) => setNameValue(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleSaveName(); if (e.key === 'Escape') { setEditingName(false); setNameValue(user?.name || ''); } }}
+                  maxLength={60}
+                  className="flex-1 px-3 py-1.5 rounded-xl border border-[#ee2a7b]/40 focus:outline-none focus:ring-2 focus:ring-[#ee2a7b]/30 text-gray-800 font-semibold text-lg bg-white/80"
+                />
+                <button
+                  onClick={handleSaveName}
+                  disabled={savingName}
+                  className="w-8 h-8 rounded-full bg-[#ee2a7b] flex items-center justify-center text-white hover:bg-[#c51e67] transition disabled:opacity-50"
+                >
+                  <HiOutlineCheck />
+                </button>
+                <button
+                  onClick={() => { setEditingName(false); setNameValue(user?.name || ''); }}
+                  className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200 transition"
+                >
+                  <HiOutlineX />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 mb-1">
+                <p className="text-xl font-bold text-gray-800">{user?.name}</p>
+                <button
+                  onClick={() => setEditingName(true)}
+                  className="text-gray-400 hover:text-[#ee2a7b] transition"
+                  title="Edit name"
+                >
+                  <HiOutlinePencil />
+                </button>
+              </div>
+            )}
+            <p className="text-sm text-gray-400">{user?.email}</p>
+            {(nameMsg || avatarMsg) && (
+              <p className={`text-xs mt-2 font-medium ${(nameMsg || avatarMsg).startsWith('Error') || (nameMsg || avatarMsg).startsWith('Failed') ? 'text-red-500' : 'text-emerald-600'}`}>
+                {nameMsg || avatarMsg}
+              </p>
+            )}
+          </div>
+        </div>
+
+        <p className="text-xs text-gray-400">Click on the photo to change it. Click the pencil icon to edit your name.</p>
+      </div>
+
+      {/* ── Relationship Details ──────────────────────────────────────── */}
       <div className="bg-white/60 p-6 rounded-[2rem] shadow-sm border border-white/80 mb-8">
         <h2 className="text-xl font-semibold text-gray-800 mb-4">Relationship Details</h2>
         <form onSubmit={handleSaveDate} className="flex flex-col gap-4">
@@ -80,15 +241,16 @@ function Settings() {
           </div>
           <button
             type="submit"
-            disabled={isSaving}
+            disabled={isSavingDate}
             className="self-start px-6 py-2 bg-blush-500 text-white rounded-full font-medium hover:bg-blush-600 transition disabled:opacity-50"
           >
-            {isSaving ? 'Saving...' : 'Save Date'}
+            {isSavingDate ? 'Saving...' : 'Save Date'}
           </button>
-          {message && <p className="text-sm text-green-600">{message}</p>}
+          {dateMsg && <p className="text-sm text-green-600">{dateMsg}</p>}
         </form>
       </div>
 
+      {/* ── Export ───────────────────────────────────────────────────── */}
       <div className="bg-white/60 p-6 rounded-[2rem] shadow-sm border border-white/80 mb-8">
         <h2 className="text-xl font-semibold text-gray-800 mb-2">Export Data</h2>
         <p className="text-sm text-gray-500 mb-4">Download a copy of all your memories, messages, and photos.</p>
@@ -100,6 +262,7 @@ function Settings() {
         </button>
       </div>
 
+      {/* ── Danger Zone ──────────────────────────────────────────────── */}
       <div className="bg-red-50 p-6 rounded-[2rem] shadow-sm border border-red-100">
         <h2 className="text-xl font-semibold text-red-800 mb-2">Danger Zone</h2>
         <p className="text-sm text-red-600 mb-4">Disconnect from your partner and reset all relationship settings. This action is irreversible.</p>

@@ -56,6 +56,35 @@ router.post('/avatar', uploadLimiter, upload.single('avatar'), async (req, res) 
   }
 });
 
+// PUT /api/settings/profile — update display name
+router.put('/profile', async (req, res) => {
+  try {
+    const { name } = req.body;
+    if (!name || !name.trim()) return res.status(400).json({ error: 'Name cannot be empty' });
+    const trimmed = name.trim().slice(0, 60);
+    const updated = await User.findByIdAndUpdate(
+      req.user._id,
+      { name: trimmed },
+      { new: true, select: 'name email avatarUrl partnerId role relationshipStartDate' }
+    );
+    res.json({ message: 'Profile updated', name: updated.name });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/settings/partner — return linked partner's public info
+router.get('/partner', async (req, res) => {
+  try {
+    const me = await User.findById(req.user._id).select('partnerId');
+    if (!me?.partnerId) return res.json({ partner: null });
+    const partner = await User.findById(me.partnerId).select('name avatarUrl email');
+    res.json({ partner: partner || null });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // PUT /api/settings/relationship-date
 router.put('/relationship-date', async (req, res) => {
   try {
