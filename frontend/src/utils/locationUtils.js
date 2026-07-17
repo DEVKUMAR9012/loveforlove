@@ -20,7 +20,7 @@ export function calculateDistance(lat1, lng1, lat2, lng2) {
 
 // Format distance for display
 export function formatDistance(distanceKm) {
-  if (!distanceKm) return '–';
+  if (distanceKm === null || distanceKm === undefined || Number.isNaN(distanceKm)) return '-';
   if (distanceKm < 0.001) return '< 1 m';
   if (distanceKm < 1) return `${Math.round(distanceKm * 1000)} m`;
   return `${distanceKm.toFixed(1)} km`;
@@ -67,17 +67,17 @@ export function getTimeAgo(date) {
 
   if (seconds < 60) return 'just now';
   const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
+  if (minutes < 60) return `${minutes} min ago`;
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
+  if (hours < 24) return `${hours} hr ago`;
   const days = Math.floor(hours / 24);
-  return `${days}d ago`;
+  return `${days} day${days === 1 ? '' : 's'} ago`;
 }
 
 // Get status text based on speed
 export function getMovementStatus(speedMs) {
-  if (!speedMs || speedMs < 0.5) return '⏸️ Stationary';
-  if (speedMs < 1.4) return '🚶 Walking';
-  if (speedMs < 8) return '🚗 Driving';
-  return '🚀 Fast moving';
+  if (!speedMs || speedMs < 0.5) return 'Stationary';
+  if (speedMs < 1.4) return 'Walking';
+  if (speedMs < 8) return 'Driving';
+  return 'Fast moving';
 }

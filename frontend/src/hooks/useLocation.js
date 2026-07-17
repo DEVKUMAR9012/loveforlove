@@ -1,8 +1,15 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { useAuth } from '../context/AuthContext';
+
+function isLoopbackHost(hostname) {
+  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
+}
+
+function needsSecureLocationContext() {
+  if (typeof window === 'undefined') return false;
+  return !window.isSecureContext && !isLoopbackHost(window.location.hostname);
+}
 
 export function useLocation() {
-  const { user } = useAuth();
   const [location, setLocation] = useState(null);
   const [error, setError] = useState(null);
   const [isWatching, setIsWatching] = useState(false);
@@ -17,13 +24,18 @@ export function useLocation() {
         return false;
       }
 
-      // iOS requires HTTPS or localhost
-      if (location && navigator.permissions) {
-        const permission = await navigator.permissions.query({
-          name: 'geolocation',
-        });
+      if (needsSecureLocationContext()) {
+        setError('Live GPS needs HTTPS on phone. Use the deployed HTTPS app or a secure tunnel for mobile testing.');
+        return false;
+      }
 
-        if (permission.state === 'denied') {
+      // Mobile browsers require explicit permission; query when supported.
+      if (navigator.permissions) {
+        const permission = await navigator.permissions
+          .query({ name: 'geolocation' })
+          .catch(() => null);
+
+        if (permission?.state === 'denied') {
           setError('Location permission denied. Please enable in settings.');
           return false;
         }
@@ -34,7 +46,7 @@ export function useLocation() {
       console.error('Permission request error:', err);
       return false;
     }
-  }, [location]);
+  }, []);
 
   // Start watching location
   const startWatching = useCallback(async () => {
@@ -140,8 +152,7 @@ export function useLocationSocket(socket, location, battery) {
   useEffect(() => {
     if (!socket || !location) return;
 
-    // Emit location every 10 seconds
-    emitInterval.current = setInterval(() => {
+    const emitLocation = () => {
       socket.emit('location:update', {
         latitude: location.latitude,
         longitude: location.longitude,
@@ -150,6 +161,13 @@ export function useLocationSocket(socket, location, battery) {
         speed: location.speed,
         heading: location.heading,
       });
+    };
+
+    emitLocation();
+
+    // Emit location every 10 seconds
+    emitInterval.current = setInterval(() => {
+      emitLocation();
     }, 10000);
 
     return () => {

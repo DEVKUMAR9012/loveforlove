@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { HiOutlineCloudUpload, HiOutlineX, HiOutlinePhotograph, HiOutlineExclamationCircle } from 'react-icons/hi';
+import { getApiBaseUrl } from '../utils/api';
 
 // ---------------------------------------------------------------------------
 // Design notes (so future-you remembers the intent):
@@ -35,7 +36,7 @@ function MediaGallery() {
 
   const fileInputRef = useRef(null);
   const dragCounter = useRef(0);
-  const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+  const API_BASE = getApiBaseUrl();
 
   const fetchMemories = useCallback(async () => {
     setIsLoading(true);

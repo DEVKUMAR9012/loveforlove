@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
+import { getApiBaseUrl } from '../utils/api';
 import {
   HiOutlinePaperAirplane,
   HiOutlinePhotograph,
@@ -8,7 +9,7 @@ import {
   HiOutlineEmojiHappy,
 } from 'react-icons/hi';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+const API_BASE = getApiBaseUrl();
 
 const QUICK_LINES = [
   "i love you more than words can say 💕",

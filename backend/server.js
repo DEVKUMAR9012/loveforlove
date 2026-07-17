@@ -5,6 +5,8 @@ const cookieParser = require('cookie-parser');
 const connectDB = require('./config/db');
 const { apiLimiter } = require('./middleware/rateLimiters');
 const { Server } = require('socket.io');
+const jwt = require('jsonwebtoken');
+const User = require('./models/User');
 
 // routes
 const authRoutes     = require('./routes/auth');
@@ -39,13 +41,35 @@ if (process.env.ALLOWED_ORIGIN) {
   allowedOrigins.push(...process.env.ALLOWED_ORIGIN.split(',').map((o) => o.trim()));
 }
 
+function isPrivateNetworkDevOrigin(origin) {
+  if (process.env.NODE_ENV === 'production') return false;
+
+  try {
+    const { hostname, protocol } = new URL(origin);
+    if (protocol !== 'http:') return false;
+
+    return (
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      /^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname) ||
+      /^192\.168\.\d{1,3}\.\d{1,3}$/.test(hostname) ||
+      /^172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}$/.test(hostname)
+    );
+  } catch {
+    return false;
+  }
+}
+
+function isAllowedOrigin(origin) {
+  if (!origin) return true;
+  if (allowedOrigins.includes(origin)) return true;
+  return isPrivateNetworkDevOrigin(origin);
+}
+
 app.use(cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-    
-    // Check if origin is in allowed origins list
-    if (allowedOrigins.includes(origin)) return callback(null, true);
+    if (isAllowedOrigin(origin)) return callback(null, true);
     
     // In development/hobby mode, you might want to just allow it or log it
     console.log("Blocked CORS request from origin:", origin);
@@ -111,24 +135,34 @@ const server = app.listen(PORT, () => {
 // ── Socket.io setup ───────────────────────────────────────────────────
 const io = new Server(server, {
   cors: {
-    origin: allowedOrigins,
+    origin: (origin, callback) => {
+      if (isAllowedOrigin(origin)) return callback(null, true);
+      callback(new Error(`CORS: origin ${origin} not allowed`));
+    },
     credentials: true,
   },
 });
 
 // Socket.io authentication middleware
-io.use((socket, next) => {
+io.use(async (socket, next) => {
   const token = socket.handshake.auth.token;
   if (!token) {
     return next(new Error('Authentication failed'));
   }
 
   try {
-    const decoded = require('jsonwebtoken').verify(token, process.env.JWT_SECRET || 'your_secret');
-    socket.userId = decoded.id;
-    socket.partnerId = decoded.partnerId; // Store partnerId for broadcasting
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'CHANGE_ME_access_secret');
+    const user = await User.findById(decoded.id).select('partnerId');
+
+    if (!user) {
+      return next(new Error('Invalid user'));
+    }
+
+    socket.userId = user._id.toString();
+    socket.partnerId = user.partnerId ? user.partnerId.toString() : null;
     next();
   } catch (err) {
+    console.error('Socket auth error:', err.message);
     next(new Error('Invalid token'));
   }
 });
@@ -178,6 +212,20 @@ io.on('connection', (socket) => {
       // Broadcast hug to partner
       io.to(roomKey).emit('hug:received', {
         fromUserId: socket.userId,
+        timestamp: new Date(),
+      });
+    }
+  });
+
+  // Keep pause/resume visible to both partners. The HTTP endpoint persists the
+  // state; this socket event makes the UI transparent in real time.
+  socket.on('location:sharing-state', (data) => {
+    if (socket.partnerId) {
+      const roomKey = [socket.userId, socket.partnerId].sort().join('-');
+
+      io.to(roomKey).emit('location:sharing-state', {
+        userId: socket.userId,
+        sharingActive: data?.sharingActive === true,
         timestamp: new Date(),
       });
     }

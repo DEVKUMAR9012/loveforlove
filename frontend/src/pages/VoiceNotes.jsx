@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
+import { getApiBaseUrl } from '../utils/api';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+const API_BASE = getApiBaseUrl();
 const AUDIO_FORMATS = [
   { mimeType: 'audio/webm;codecs=opus', extension: 'webm' },
   { mimeType: 'audio/webm', extension: 'webm' },

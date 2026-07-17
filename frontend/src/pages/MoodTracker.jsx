@@ -4,6 +4,7 @@ import {
   HiOutlineExclamationCircle,
   HiOutlineFire,
 } from 'react-icons/hi';
+import { getApiBaseUrl } from '../utils/api';
 
 // ---------------------------------------------------------------------------
 // Personal mood journal — every user has their own isolated mood history.
@@ -36,7 +37,7 @@ function timeAgo(date) {
 }
 
 function MoodTracker() {
-  const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+  const API_BASE = getApiBaseUrl();
 
   const [myMood, setMyMood]         = useState(null);
   const [myMoodAt, setMyMoodAt]     = useState(null);

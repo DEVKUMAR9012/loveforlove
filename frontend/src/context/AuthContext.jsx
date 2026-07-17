@@ -1,10 +1,11 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { signInWithPopup } from 'firebase/auth';
 import { auth, googleProvider, facebookProvider, instagramProvider } from '../firebaseConfig';
+import { getApiBaseUrl } from '../utils/api';
 
 const AuthContext = createContext(null);
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+const API = getApiBaseUrl();
 
 const normalizeInviteCode = (value) => String(value || '').toUpperCase().replace(/[\s-]/g, '');
 
