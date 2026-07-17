@@ -93,7 +93,7 @@ function Login() {
           transition={{ duration: 0.6, ease: 'easeOut' }}
           className="flex flex-col items-center"
         >
-          <AnimatedLogo className="w-64 h-64 md:w-80 md:h-80 mb-6 drop-shadow-xl" />
+          <AnimatedMainLogo className="w-64 h-64 md:w-80 md:h-80 mb-6 drop-shadow-xl" />
           <motion.h1
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
@@ -145,7 +145,7 @@ function Login() {
               </button>
 
               <div className="text-center mb-8">
-                <AnimatedLogo className="w-12 h-12 mx-auto mb-4" />
+                <AnimatedMainLogo className="w-12 h-12 mx-auto mb-4" />
                 <h2 className="text-2xl font-bold text-[#8b1c31]">Sign in</h2>
                 <p className="text-gray-500 text-sm mt-1">to your safe space</p>
               </div>

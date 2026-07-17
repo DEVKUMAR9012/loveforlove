@@ -173,7 +173,7 @@ function Dashboard() {
                 className="relative z-30 w-12 h-12 rounded-full bg-white shadow-lg border border-rose-100 flex items-center justify-center shrink-0"
                 style={{ boxShadow: '0 0 0 4px rgba(238,42,123,0.08)' }}
               >
-                <AnimatedLogo className="w-7 h-7" />
+                <AnimatedMainLogo className="w-7 h-7" />
               </div>
 
               {/* Partner avatar */}

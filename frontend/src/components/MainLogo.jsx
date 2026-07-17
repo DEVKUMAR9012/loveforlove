@@ -1,101 +1,90 @@
 /**
- * MainLogo — the single source of truth for the Together Forever heart logo.
+ * MainLogo — single source of truth for the Together Forever woven-heart logo.
  *
- * Matches the main brand logo exactly:
- *  - Thick, rounded, gradient-filled heart strokes that form a V shape
- *  - Gradient: #ee2a7b → #f26e4e → #f9a825 (pink → orange → gold)
- *  - A small teardrop overlap at the top centre (the "knot")
- *  - Clean, filled silhouette — NOT a thin outlined stroke
+ * Two thick rounded strokes cross at the top centre to form the iconic
+ * "woven ribbon" heart silhouette with a pink→orange→yellow gradient.
  *
  * Usage:
  *   <MainLogo className="w-16 h-16" />
- *   <AnimatedMainLogo className="w-16 h-16" />
+ *   <AnimatedMainLogo className="w-16 h-16" />   ← draws in + heartbeat pulse
  */
 import { useId } from 'react';
 import { motion } from 'framer-motion';
 
+/* ─── Static version ──────────────────────────────────────────────────── */
 export function MainLogo({ className = 'w-12 h-12' }) {
   const uid = useId();
-  const gId = `mlg-${uid}`;
+  const gId  = `ml-g-${uid}`;
+  const gId2 = `ml-g2-${uid}`;
 
   return (
-    <svg
-      viewBox="0 0 200 200"
-      className={className}
-      xmlns="http://www.w3.org/2000/svg"
-      aria-label="Together Forever logo"
-    >
+    <svg viewBox="0 0 200 200" className={className} xmlns="http://www.w3.org/2000/svg" aria-label="Together Forever logo">
       <defs>
-        <linearGradient id={gId} x1="0%" y1="0%" x2="100%" y2="110%">
+        <linearGradient id={gId2} x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%"   stopColor="#ee2a7b" stopOpacity="0.85" />
+          <stop offset="50%"  stopColor="#f26e4e" stopOpacity="0.85" />
+          <stop offset="100%" stopColor="#f9ce34" stopOpacity="0.85" />
+        </linearGradient>
+        <linearGradient id={gId} x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%"   stopColor="#ee2a7b" />
-          <stop offset="45%"  stopColor="#f26e4e" />
-          <stop offset="100%" stopColor="#f9a825" />
+          <stop offset="50%"  stopColor="#f26e4e" />
+          <stop offset="100%" stopColor="#f9ce34" />
         </linearGradient>
       </defs>
 
-      {/*
-        Right lobe — curves from the knot at top-centre down the right
-        side and converges to the bottom tip.
-      */}
+      {/* Back strand — right hump, drawn first so front strand weaves over it */}
       <path
-        d="M104,54 C110,28 134,10 160,14 C188,18 196,50 178,76
-           C162,100 132,138 104,182"
+        d="M90,58 C95,33 115,14 150,17 C182,20 186,54 168,75 C150,98 122,136 100,180"
         fill="none"
-        stroke={`url(#${gId})`}
-        strokeWidth="28"
+        stroke={`url(#${gId2})`}
+        strokeWidth="22"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
 
-      {/*
-        Left lobe — mirror of the right, same gradient.
-      */}
+      {/* Front strand — left hump, crosses over the back strand at the cleft */}
       <path
-        d="M96,54 C90,28 66,10 40,14 C12,18 4,50 22,76
-           C38,100 68,138 96,182"
+        d="M110,58 C105,33 85,14 50,17 C18,20 14,54 32,75 C50,98 78,136 100,180"
         fill="none"
         stroke={`url(#${gId})`}
-        strokeWidth="28"
+        strokeWidth="22"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
 
-      {/*
-        Knot — small teardrop / overlap shape at the very top centre,
-        exactly like the main logo reference image.
-      */}
-      <ellipse
-        cx="100"
-        cy="56"
-        rx="11"
-        ry="15"
-        fill={`url(#${gId})`}
-        opacity="0.9"
-      />
+      {/* Gloss highlights for depth */}
+      <path d="M100,42 C108,26 126,18 148,20" fill="none" stroke="#fff" strokeWidth="5" strokeLinecap="round" opacity="0.35" />
+      <path d="M100,42 C92,26 74,18 52,20"  fill="none" stroke="#fff" strokeWidth="5" strokeLinecap="round" opacity="0.35" />
     </svg>
   );
 }
 
-/* Draw-in animation variants for Framer Motion */
+/* ─── Draw-in animation variants ─────────────────────────────────────── */
 const drawPath = {
   hidden: { pathLength: 0, opacity: 0 },
   visible: (i = 0) => ({
     pathLength: 1,
     opacity: 1,
     transition: {
-      pathLength: { duration: 1.0, delay: i * 0.22, ease: 'easeInOut' },
-      opacity:    { duration: 0.3, delay: i * 0.22 },
+      pathLength: { duration: 0.9, delay: i * 0.25, ease: 'easeInOut' },
+      opacity:    { duration: 0.3, delay: i * 0.25 },
     },
   }),
 };
 
-/**
- * AnimatedMainLogo — logo that draws itself in then does a heartbeat pulse.
- * Drop-in replacement for the old AnimatedLogo in Sidebar / Dashboard.
- */
+const gloss = {
+  hidden:  { opacity: 0 },
+  visible: (i = 0) => ({
+    opacity: 0.35,
+    transition: { duration: 0.5, delay: 1 + i * 0.1 },
+  }),
+};
+
+/* ─── Animated version — draws in on mount then heartbeat pulses ─────── */
 export function AnimatedMainLogo({ className = 'w-16 h-16' }) {
   const uid = useId();
-  const gId = `amlg-${uid}`;
+  const gId  = `aml-g-${uid}`;
+  const gId2 = `aml-g2-${uid}`;
 
   return (
     <motion.svg
@@ -104,29 +93,34 @@ export function AnimatedMainLogo({ className = 'w-16 h-16' }) {
       xmlns="http://www.w3.org/2000/svg"
       aria-label="Together Forever logo"
       initial={{ scale: 1 }}
-      animate={{ scale: [1, 1, 1.09, 1, 1.05, 1] }}
+      animate={{ scale: [1, 1, 1.08, 1, 1.05, 1] }}
       transition={{
         duration: 1.6,
-        delay: 1.6,
+        delay: 1.4,
         repeat: Infinity,
-        repeatDelay: 2.0,
+        repeatDelay: 1.8,
         ease: 'easeInOut',
       }}
     >
       <defs>
-        <linearGradient id={gId} x1="0%" y1="0%" x2="100%" y2="110%">
+        <linearGradient id={gId2} x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%"   stopColor="#ee2a7b" stopOpacity="0.85" />
+          <stop offset="50%"  stopColor="#f26e4e" stopOpacity="0.85" />
+          <stop offset="100%" stopColor="#f9ce34" stopOpacity="0.85" />
+        </linearGradient>
+        <linearGradient id={gId} x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%"   stopColor="#ee2a7b" />
-          <stop offset="45%"  stopColor="#f26e4e" />
-          <stop offset="100%" stopColor="#f9a825" />
+          <stop offset="50%"  stopColor="#f26e4e" />
+          <stop offset="100%" stopColor="#f9ce34" />
         </linearGradient>
       </defs>
 
+      {/* Back strand */}
       <motion.path
-        d="M104,54 C110,28 134,10 160,14 C188,18 196,50 178,76
-           C162,100 132,138 104,182"
+        d="M90,58 C95,33 115,14 150,17 C182,20 186,54 168,75 C150,98 122,136 100,180"
         fill="none"
-        stroke={`url(#${gId})`}
-        strokeWidth="28"
+        stroke={`url(#${gId2})`}
+        strokeWidth="22"
         strokeLinecap="round"
         strokeLinejoin="round"
         initial="hidden"
@@ -135,12 +129,12 @@ export function AnimatedMainLogo({ className = 'w-16 h-16' }) {
         variants={drawPath}
       />
 
+      {/* Front strand — weaves over the back */}
       <motion.path
-        d="M96,54 C90,28 66,10 40,14 C12,18 4,50 22,76
-           C38,100 68,138 96,182"
+        d="M110,58 C105,33 85,14 50,17 C18,20 14,54 32,75 C50,98 78,136 100,180"
         fill="none"
         stroke={`url(#${gId})`}
-        strokeWidth="28"
+        strokeWidth="22"
         strokeLinecap="round"
         strokeLinejoin="round"
         initial="hidden"
@@ -149,17 +143,9 @@ export function AnimatedMainLogo({ className = 'w-16 h-16' }) {
         variants={drawPath}
       />
 
-      <motion.ellipse
-        cx="100"
-        cy="56"
-        rx="11"
-        ry="15"
-        fill={`url(#${gId})`}
-        opacity="0.9"
-        initial={{ opacity: 0, scale: 0 }}
-        animate={{ opacity: 0.9, scale: 1 }}
-        transition={{ delay: 0.6, duration: 0.4, ease: 'backOut' }}
-      />
+      {/* Gloss highlights */}
+      <motion.path d="M100,42 C108,26 126,18 148,20" fill="none" stroke="#fff" strokeWidth="5" strokeLinecap="round" initial="hidden" animate="visible" custom={0} variants={gloss} />
+      <motion.path d="M100,42 C92,26 74,18 52,20"  fill="none" stroke="#fff" strokeWidth="5" strokeLinecap="round" initial="hidden" animate="visible" custom={1} variants={gloss} />
     </motion.svg>
   );
 }
