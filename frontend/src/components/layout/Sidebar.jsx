@@ -1,7 +1,6 @@
-import { useId } from 'react';
 import { NavLink } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
+import { AnimatedMainLogo } from '../MainLogo';
 import {
   HiOutlineHome,
   HiOutlinePhotograph,
@@ -28,85 +27,6 @@ const navItems = [
   { label: 'Settings', to: '/settings', icon: HiOutlineCog },
 ];
 
-// Draw-in variants for each ribbon stroke — same as the Login page logo.
-const drawPath = {
-  hidden: { pathLength: 0, opacity: 0 },
-  visible: (i = 0) => ({
-    pathLength: 1,
-    opacity: 1,
-    transition: {
-      pathLength: { duration: 0.9, delay: i * 0.25, ease: 'easeInOut' },
-      opacity: { duration: 0.3, delay: i * 0.25 },
-    },
-  }),
-};
-
-// Small woven-heart mark, matching the Login/About logo.
-const LogoMark = ({ className }) => {
-  const uid = useId();
-  const gradId = `sidebarLogoGradient-${uid}`;
-  const gradSoftId = `sidebarLogoGradientSoft-${uid}`;
-
-  return (
-    <svg viewBox="0 0 200 200" className={className} xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#ee2a7b" />
-          <stop offset="50%" stopColor="#f26e4e" />
-          <stop offset="100%" stopColor="#f9ce34" />
-        </linearGradient>
-        <linearGradient id={gradSoftId} x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#ee2a7b" stopOpacity="0.85" />
-          <stop offset="50%" stopColor="#f26e4e" stopOpacity="0.85" />
-          <stop offset="100%" stopColor="#f9ce34" stopOpacity="0.85" />
-        </linearGradient>
-      </defs>
-      <motion.path
-        d="M90,58 C95,33 115,14 150,17 C182,20 186,54 168,75 C150,98 122,136 100,180"
-        fill="none"
-        stroke={`url(#${gradSoftId})`}
-        strokeWidth="22"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        initial="hidden"
-        animate="visible"
-        custom={0}
-        variants={drawPath}
-      />
-      <motion.path
-        d="M110,58 C105,33 85,14 50,17 C18,20 14,54 32,75 C50,98 78,136 100,180"
-        fill="none"
-        stroke={`url(#${gradId})`}
-        strokeWidth="22"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        initial="hidden"
-        animate="visible"
-        custom={1}
-        variants={drawPath}
-      />
-    </svg>
-  );
-};
-
-// Wraps LogoMark: strokes draw themselves in, then settle into a gentle,
-// looping heartbeat pulse — same rhythm as the Login page logo.
-const AnimatedLogo = ({ className }) => (
-  <motion.div
-    className="inline-block"
-    initial={{ scale: 1 }}
-    animate={{ scale: [1, 1, 1.08, 1, 1.05, 1] }}
-    transition={{
-      duration: 1.6,
-      delay: 1.4,
-      repeat: Infinity,
-      repeatDelay: 1.8,
-      ease: 'easeInOut',
-    }}
-  >
-    <LogoMark className={className} />
-  </motion.div>
-);
 
 function Sidebar() {
   const { user, logout } = useAuth();
@@ -126,7 +46,7 @@ function Sidebar() {
       </svg>
       {/* Brand - hidden on mobile */}
       <div className="hidden md:flex flex-col items-center mb-8">
-        <AnimatedLogo className="w-16 h-16 mb-1 drop-shadow-sm" />
+        <AnimatedMainLogo className="w-16 h-16 mb-1 drop-shadow-sm" />
         <p className="text-sm text-sky-500 font-medium flex items-center gap-1">
           Together Forever <span aria-hidden="true">✨</span>
         </p>

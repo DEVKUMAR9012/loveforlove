@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
+import { MainLogo } from '../components/MainLogo';
 import {
   FaCamera,
   FaCalendarAlt,
@@ -23,34 +24,6 @@ const fadeUp = {
   }),
 };
 
-const LogoMark = ({ className }) => (
-  <svg viewBox="0 0 200 200" className={className} xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <linearGradient id="logoGradientSmall" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#ee2a7b" />
-        <stop offset="50%" stopColor="#f26e4e" />
-        <stop offset="100%" stopColor="#f9ce34" />
-      </linearGradient>
-    </defs>
-    <path
-      d="M90,58 C95,33 115,14 150,17 C182,20 186,54 168,75 C150,98 122,136 100,180"
-      fill="none"
-      stroke="url(#logoGradientSmall)"
-      strokeWidth="22"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      opacity="0.85"
-    />
-    <path
-      d="M110,58 C105,33 85,14 50,17 C18,20 14,54 32,75 C50,98 78,136 100,180"
-      fill="none"
-      stroke="url(#logoGradientSmall)"
-      strokeWidth="22"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </svg>
-);
 
 const features = [
   {
@@ -132,7 +105,7 @@ const About = () => {
       {/* Navbar */}
       <nav className="flex items-center justify-between px-8 py-6 max-w-7xl mx-auto w-full relative z-10">
         <Link to="/login" className="flex items-center gap-2">
-          <LogoMark className="w-10 h-10" />
+          <MainLogo className="w-10 h-10" />
           <span className="text-[#8b1c31] font-bold text-2xl tracking-tight">loveforlove</span>
         </Link>
         <Link to="/login" className="text-gray-600 hover:text-gray-900 font-medium transition-colors">
@@ -306,7 +279,7 @@ const About = () => {
       <footer className="border-t border-gray-100 py-8">
         <div className="max-w-5xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <LogoMark className="w-6 h-6" />
+            <MainLogo className="w-6 h-6" />
             <span className="text-[#8b1c31] font-bold tracking-tight">loveforlove</span>
           </div>
           <p className="text-sm text-gray-400">Your connection, everlasting.</p>
