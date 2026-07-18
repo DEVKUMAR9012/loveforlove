@@ -12,7 +12,6 @@ import SharedCalendar from './pages/SharedCalendar';
 import MoodTracker from './pages/MoodTracker';
 import Snap from './pages/Snap';
 import VoiceNotes from './pages/VoiceNotes';
-import Messages from './pages/Messages';
 import Settings from './pages/Settings';
 import AdminDashboard from './pages/AdminDashboard';
 import ReportPage from './pages/ReportPage';
@@ -65,7 +64,6 @@ function App() {
               <Route path="/snap"     element={<Guarded><Snap /></Guarded>} />
               <Route path="/prompts"  element={<Navigate to="/snap" replace />} />
               <Route path="/voice"    element={<Guarded><VoiceNotes /></Guarded>} />
-              <Route path="/messages" element={<Guarded><Messages /></Guarded>} />
               <Route path="/location" element={<Guarded><LiveLocation /></Guarded>} />
               <Route path="/settings" element={<Guarded><Settings /></Guarded>} />
               <Route path="/admin"    element={<Guarded><AdminRoute><AdminDashboard /></AdminRoute></Guarded>} />

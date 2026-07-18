@@ -109,7 +109,13 @@ function getEtaMinutes(distanceKm, speedMs) {
 }
 
 function getDisplayDistance(myLocation, partnerLocation, fallbackDistance) {
-  if (myLocation && partnerLocation) {
+  // Both locations must have valid, finite coordinates — never use 0/null coords
+  if (
+    myLocation?.latitude != null &&
+    myLocation?.longitude != null &&
+    partnerLocation?.latitude != null &&
+    partnerLocation?.longitude != null
+  ) {
     return calculateDistance(
       myLocation.latitude,
       myLocation.longitude,
@@ -118,7 +124,7 @@ function getDisplayDistance(myLocation, partnerLocation, fallbackDistance) {
     );
   }
 
-  return Number.isFinite(Number(fallbackDistance)) ? Number(fallbackDistance) : null;
+  return null; // Do NOT fall back to a stale/default distance — show null
 }
 
 function getJourneyText(distanceKm, etaMinutes) {
@@ -221,6 +227,14 @@ export default function LiveLocation() {
   const partnerName = partner?.name || 'Partner';
   const bothSharingActive = sharingActive && partnerSharingActive;
 
+  // Single source of truth: both markers must have valid positions for ANY distance/together logic
+  const bothLocationsReady = Boolean(
+    location?.latitude != null &&
+    location?.longitude != null &&
+    partnerLocation?.latitude != null &&
+    partnerLocation?.longitude != null
+  );
+
   const showToast = useCallback((message, tone = 'warm') => {
     setToast({ id: Date.now(), message, tone });
     window.clearTimeout(toastTimeoutRef.current);
@@ -233,11 +247,12 @@ export default function LiveLocation() {
   );
 
   const displayDistance = useMemo(
-    () => getDisplayDistance(location, partnerLocation, distance),
-    [distance, location, partnerLocation]
+    () => bothLocationsReady ? getDisplayDistance(location, partnerLocation, distance) : null,
+    [bothLocationsReady, distance, location, partnerLocation]
   );
+  // isTogetherNow requires BOTH markers to actually exist with valid coords
   const isTogetherNow =
-    bothSharingActive && displayDistance !== null && displayDistance <= TOGETHER_DISTANCE_KM;
+    bothLocationsReady && bothSharingActive && displayDistance !== null && displayDistance <= TOGETHER_DISTANCE_KM;
 
   useEffect(() => {
     if (isTogetherNow && !arrivalCelebratedRef.current) {

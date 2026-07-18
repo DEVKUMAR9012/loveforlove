@@ -4,6 +4,7 @@ import {
   HiOutlineExclamationCircle,
   HiOutlineFire,
 } from 'react-icons/hi';
+import { InLoveFace, HappyFace, CalmFace, MissYouFace, StressedFace } from '../components/MoodFaces';
 import { getApiBaseUrl } from '../utils/api';
 
 // ---------------------------------------------------------------------------
@@ -11,11 +12,11 @@ import { getApiBaseUrl } from '../utils/api';
 // ---------------------------------------------------------------------------
 
 const MOODS = [
-  { id: 'in_love',  emoji: '🥰', label: 'In Love',  color: '#D4537E', soft: '#FBEAF0' },
-  { id: 'happy',    emoji: '😊', label: 'Happy',    color: '#BA7517', soft: '#FAEEDA' },
-  { id: 'calm',     emoji: '😌', label: 'Calm',     color: '#0F6E56', soft: '#E1F5EE' },
-  { id: 'miss_you', emoji: '🥺', label: 'Miss You', color: '#534AB7', soft: '#EEEDFE' },
-  { id: 'stressed', emoji: '😫', label: 'Stressed', color: '#993C1D', soft: '#FAECE7' },
+  { id: 'in_love',  Face: InLoveFace,   emoji: '🥰', label: 'In Love',  color: '#D4537E', soft: '#FBEAF0' },
+  { id: 'happy',    Face: HappyFace,    emoji: '😊', label: 'Happy',    color: '#BA7517', soft: '#FAEEDA' },
+  { id: 'calm',     Face: CalmFace,     emoji: '😌', label: 'Calm',     color: '#0F6E56', soft: '#E1F5EE' },
+  { id: 'miss_you', Face: MissYouFace,  emoji: '🥺', label: 'Miss You', color: '#534AB7', soft: '#EEEDFE' },
+  { id: 'stressed', Face: StressedFace, emoji: '😫', label: 'Stressed', color: '#993C1D', soft: '#FAECE7' },
 ];
 
 const HEATMAP_DAYS = 35;
@@ -197,7 +198,7 @@ function MoodTracker() {
               className="flex items-center gap-4 px-6 py-4 rounded-3xl shadow-sm border border-white/80"
               style={{ background: myMoodObj.soft }}
             >
-              <span className="text-4xl">{myMoodObj.emoji}</span>
+              <myMoodObj.Face size={52} />
               <div>
                 <p className="text-xs text-gray-400 mb-0.5">You</p>
                 <p className="font-bold text-gray-800">Feeling {myMoodObj.label.toLowerCase()}</p>
@@ -217,7 +218,7 @@ function MoodTracker() {
               className="flex items-center gap-4 px-6 py-4 rounded-3xl shadow-sm border border-white/80"
               style={{ background: partnerMoodObj.soft }}
             >
-              <span className="text-4xl">{partnerMoodObj.emoji}</span>
+              <partnerMoodObj.Face size={52} />
               <div>
                 <p className="text-xs text-gray-400 mb-0.5">Partner 💕</p>
                 <p className="font-bold text-gray-800">Feeling {partnerMoodObj.label.toLowerCase()}</p>
@@ -239,14 +240,15 @@ function MoodTracker() {
               whileTap={{ scale: 0.95 }}
               onClick={() => selectMood(mood)}
               disabled={isSaving}
+              aria-label={mood.label}
               className="flex flex-col items-center justify-center w-28 h-28 rounded-[2rem] glass shadow-sm transition-all"
               style={{
                 border: `2px solid ${isSelected ? mood.color : 'transparent'}`,
                 background: isSelected ? mood.soft : 'rgba(255,255,255,0.5)',
               }}
             >
-              <span className="text-4xl mb-2">{mood.emoji}</span>
-              <span className="text-sm font-medium" style={{ color: isSelected ? mood.color : '#4B5563' }}>
+              <mood.Face size={52} />
+              <span className="text-sm font-medium mt-1" style={{ color: isSelected ? mood.color : '#4B5563' }}>
                 {mood.label}
               </span>
             </motion.button>
@@ -316,7 +318,7 @@ function MoodTracker() {
               if (!m) return null;
               return (
                 <div key={entry.id} className="flex items-center gap-4 p-4 rounded-2xl bg-white/50 shadow-sm border border-white/60">
-                  <span className="text-3xl">{m.emoji}</span>
+                  <m.Face size={48} />
                   <div>
                     <p className="font-semibold text-gray-800" style={{ color: m.color }}>{m.label}</p>
                     <p className="text-xs text-gray-500">
