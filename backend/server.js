@@ -7,6 +7,11 @@ const { apiLimiter } = require('./middleware/rateLimiters');
 const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
 const User = require('./models/User');
+const {
+  getCoupleRoomName,
+  saveUserLocation,
+  setUserLocationSharing,
+} = require('./services/locationService');
 
 // routes
 const authRoutes     = require('./routes/auth');
@@ -143,9 +148,53 @@ const io = new Server(server, {
   },
 });
 
+function getSocketToken(socket) {
+  const authToken = socket.handshake.auth?.token;
+  if (authToken) return authToken;
+
+  const header = socket.handshake.headers?.authorization;
+  if (header?.startsWith('Bearer ')) return header.split(' ')[1];
+
+  return socket.handshake.query?.token || null;
+}
+
+function emitLocationSocketError(socket, message) {
+  socket.emit('location:error', { message });
+}
+
+function partnerRoom(socket) {
+  if (!socket.coupleRoom) return null;
+  return socket.to(socket.coupleRoom).except(socket.userRoom);
+}
+
+async function handleSharingToggle(socket, data, ack) {
+  try {
+    const isSharing = data?.isSharing;
+    const result = await setUserLocationSharing(socket.userId, isSharing);
+
+    partnerRoom(socket)?.emit('partner:sharingChanged', {
+      userId: socket.userId,
+      isSharing: result.isSharing,
+      updatedAt: new Date(),
+    });
+
+    if (typeof ack === 'function') {
+      ack({ ok: true, isSharing: result.isSharing });
+    }
+  } catch (error) {
+    const message = error.statusCode && error.statusCode < 500
+      ? error.message
+      : 'Failed to update location sharing';
+
+    console.error('Socket sharing toggle error:', error);
+    emitLocationSocketError(socket, message);
+    if (typeof ack === 'function') ack({ ok: false, message });
+  }
+}
+
 // Socket.io authentication middleware
 io.use(async (socket, next) => {
-  const token = socket.handshake.auth.token;
+  const token = getSocketToken(socket);
   if (!token) {
     return next(new Error('Authentication failed'));
   }
@@ -160,6 +209,8 @@ io.use(async (socket, next) => {
 
     socket.userId = user._id.toString();
     socket.partnerId = user.partnerId ? user.partnerId.toString() : null;
+    socket.userRoom = `user:${socket.userId}`;
+    socket.coupleRoom = getCoupleRoomName(socket.userId, socket.partnerId);
     next();
   } catch (err) {
     console.error('Socket auth error:', err.message);
@@ -170,109 +221,82 @@ io.use(async (socket, next) => {
 // Socket.io event handlers
 io.on('connection', (socket) => {
   console.log(`User ${socket.userId} connected (socket: ${socket.id})`);
+  socket.join(socket.userRoom);
 
-  // Join a room named after the relationship (assuming couple uses same room key)
-  // Convention: room name = sorted([user1Id, user2Id]).join('-')
-  if (socket.partnerId) {
-    const roomKey = [socket.userId, socket.partnerId].sort().join('-');
-    socket.join(roomKey);
-    console.log(`User ${socket.userId} joined room: ${roomKey}`);
-
-    // Notify partner that user is online
-    io.to(roomKey).emit('location:user-online', {
-      userId: socket.userId,
-      socketId: socket.id,
-    });
+  if (socket.coupleRoom) {
+    socket.join(socket.coupleRoom);
+    console.log(`User ${socket.userId} joined room: ${socket.coupleRoom}`);
+  } else {
+    console.log(`User ${socket.userId} connected without a linked partner`);
   }
 
-  // Handle location updates
-  socket.on('location:update', (data) => {
-    if (socket.partnerId) {
-      const roomKey = [socket.userId, socket.partnerId].sort().join('-');
+  socket.on('location:update', async (data, ack) => {
+    try {
+      if (!socket.coupleRoom) {
+        if (typeof ack === 'function') ack({ ok: false, message: 'No partner found' });
+        return;
+      }
 
-      // Broadcast updated location to partner
-      io.to(roomKey).emit('location:update', {
+      const result = await saveUserLocation(socket.userId, data, { requireSharing: true });
+      if (result.ignored) {
+        if (typeof ack === 'function') ack({ ok: true, ignored: true, reason: result.reason });
+        return;
+      }
+
+      partnerRoom(socket)?.emit('partner:location', {
         userId: socket.userId,
-        latitude: data.latitude,
-        longitude: data.longitude,
-        accuracy: data.accuracy,
-        battery: data.battery,
-        speed: data.speed,
-        heading: data.heading,
-        timestamp: new Date(),
+        ...result.location,
       });
+
+      if (typeof ack === 'function') ack({ ok: true, location: result.location });
+    } catch (error) {
+      const message = error.statusCode && error.statusCode < 500
+        ? error.message
+        : 'Failed to update location';
+
+      console.error('Socket location update error:', error);
+      emitLocationSocketError(socket, message);
+      if (typeof ack === 'function') ack({ ok: false, message });
     }
   });
 
-  // Handle "send a hug" event
-  socket.on('hug:send', (data) => {
-    if (socket.partnerId) {
-      const roomKey = [socket.userId, socket.partnerId].sort().join('-');
-
-      // Broadcast hug to partner
-      io.to(roomKey).emit('hug:received', {
-        fromUserId: socket.userId,
-        timestamp: new Date(),
-      });
-    }
+  socket.on('sharing:toggle', (data, ack) => {
+    handleSharingToggle(socket, data, ack);
   });
 
-  // Keep pause/resume visible to both partners. The HTTP endpoint persists the
-  // state; this socket event makes the UI transparent in real time.
-  socket.on('location:sharing-state', (data) => {
-    if (socket.partnerId) {
-      const roomKey = [socket.userId, socket.partnerId].sort().join('-');
-
-      io.to(roomKey).emit('location:sharing-state', {
-        userId: socket.userId,
-        sharingActive: data?.sharingActive === true,
-        timestamp: new Date(),
-      });
-    }
+  // Backward-compatible alias for older clients.
+  socket.on('location:sharing-state', (data, ack) => {
+    handleSharingToggle(socket, { isSharing: data?.sharingActive === true }, ack);
   });
 
-  // Handle arrival celebration
-  socket.on('arrival:celebrate', (data) => {
-    if (socket.partnerId) {
-      const roomKey = [socket.userId, socket.partnerId].sort().join('-');
-
-      // Broadcast arrival to both (partner will see celebration)
-      io.to(roomKey).emit('arrival:celebrate', {
-        userId: socket.userId,
-        timestamp: new Date(),
-      });
-    }
+  socket.on('hug:send', () => {
+    partnerRoom(socket)?.emit('hug:received', {
+      fromUserId: socket.userId,
+      timestamp: new Date(),
+    });
   });
 
-  // Handle geofence event (entered/exited zone)
-  socket.on('geofence:event', (data) => {
-    if (socket.partnerId) {
-      const roomKey = [socket.userId, socket.partnerId].sort().join('-');
-
-      // Broadcast geofence event to partner
-      io.to(roomKey).emit('geofence:event', {
-        userId: socket.userId,
-        zoneId: data.zoneId,
-        zoneName: data.zoneName,
-        eventType: data.eventType, // 'enter' or 'exit'
-        timestamp: new Date(),
-      });
-    }
+  socket.on('arrival:celebrate', () => {
+    partnerRoom(socket)?.emit('arrival:celebrate', {
+      userId: socket.userId,
+      timestamp: new Date(),
+    });
   });
 
-  // Handle disconnection
-  socket.on('disconnect', () => {
-    console.log(`User ${socket.userId} disconnected (socket: ${socket.id})`);
-
-    if (socket.partnerId) {
-      const roomKey = [socket.userId, socket.partnerId].sort().join('-');
-      io.to(roomKey).emit('location:user-offline', {
-        userId: socket.userId,
-      });
-    }
+  socket.on('geofence:event', (data = {}) => {
+    partnerRoom(socket)?.emit('geofence:event', {
+      userId: socket.userId,
+      zoneId: data.zoneId,
+      zoneName: data.zoneName,
+      eventType: data.eventType,
+      timestamp: new Date(),
+    });
   });
 
-  // Handle error
+  socket.on('disconnect', (reason) => {
+    console.log(`User ${socket.userId} disconnected (socket: ${socket.id}, reason: ${reason})`);
+  });
+
   socket.on('error', (error) => {
     console.error(`Socket error for user ${socket.userId}:`, error);
   });

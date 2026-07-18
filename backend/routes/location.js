@@ -4,6 +4,8 @@ const { protect } = require('../middleware/authMiddleware');
 const {
   updateLocation,
   getPartnerLocation,
+  setLocationSharing,
+  getOwnLocationHistory,
   pauseLocationSharing,
   resumeLocationSharing,
   createSafeZone,
@@ -30,19 +32,20 @@ const handleValidationErrors = (req, res, next) => {
 // Update current user's location
 router.post(
   '/update',
-  body('latitude').isFloat({ min: -90, max: 90 }).withMessage('Invalid latitude'),
-  body('longitude').isFloat({ min: -180, max: 180 }).withMessage('Invalid longitude'),
-  body('accuracy').optional().isFloat({ min: 0 }),
-  body('battery').optional().isInt({ min: 0, max: 100 }),
-  body('speed').optional().isFloat({ min: 0 }),
-  body('heading').optional().isFloat({ min: 0, max: 360 }),
-  handleValidationErrors,
   updateLocation
 );
 
 // GET /api/location/partner
 // Get partner's current location
 router.get('/partner', getPartnerLocation);
+
+// POST /api/location/sharing
+// Toggle current user's location sharing flag
+router.post('/sharing', setLocationSharing);
+
+// GET /api/location/history?hours=24
+// Get current user's own location trail
+router.get('/history', getOwnLocationHistory);
 
 // POST /api/location/pause
 // Pause location sharing

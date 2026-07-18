@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { motion } from 'framer-motion';
-import io from 'socket.io-client';
+import { motion, useAnimation, useMotionValue, useTransform, AnimatePresence } from 'framer-motion';
 import {
   FiClock,
   FiCloudRain,
@@ -14,7 +13,7 @@ import {
   FiShield,
 } from 'react-icons/fi';
 import { useAuth } from '../context/AuthContext';
-import { useLocation, useLocationSocket } from '../hooks/useLocation';
+import { useLocationSocket } from '../hooks/useLocationSocket';
 import { LocationMap } from '../components/LocationMap';
 import { getApiBaseUrl } from '../utils/api';
 import {
@@ -42,16 +41,50 @@ function getZoneKey(zone) {
 }
 
 function toTrailPoint(location) {
-  const latitude = Number(location?.latitude);
-  const longitude = Number(location?.longitude);
+  const latitude = Number(location?.latitude ?? location?.lat);
+  const longitude = Number(location?.longitude ?? location?.lng);
 
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
 
   return {
     latitude,
     longitude,
-    timestamp: location?.timestamp || location?.lastUpdated || new Date().toISOString(),
+    timestamp: location?.timestamp || location?.lastUpdated || location?.updatedAt || new Date().toISOString(),
   };
+}
+
+function normalizeLocationPayload(payload) {
+  if (!payload || payload.isSharing === false || payload.sharingActive === false) return null;
+
+  const latitude = Number(payload.latitude ?? payload.lat);
+  const longitude = Number(payload.longitude ?? payload.lng);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+
+  const battery = payload.battery ?? payload.batteryLevel ?? null;
+
+  return {
+    ...payload,
+    latitude,
+    longitude,
+    battery,
+    batteryLevel: battery,
+    sharingActive: true,
+    lastUpdated: payload.lastUpdated || payload.updatedAt || payload.timestamp || new Date().toISOString(),
+  };
+}
+
+function getPartnerSharingState(data) {
+  if (
+    data?.isSharing === false ||
+    data?.sharingActive === false ||
+    data?.location?.isSharing === false ||
+    data?.location?.sharingActive === false ||
+    data?.locationState === 'paused'
+  ) {
+    return false;
+  }
+
+  return true;
 }
 
 function pruneTrail(points) {
@@ -143,16 +176,28 @@ function loadMemoryPins() {
 export default function LiveLocation() {
   const { user } = useAuth();
   const token = getStoredToken();
-  const { location, error: locError, isWatching, battery, startWatching, stopWatching } =
-    useLocation();
+  const [sharingActive, setSharingActive] = useState(true);
+  const {
+    socket,
+    location,
+    partnerLocation: livePartnerLocation,
+    partnerSharingActive: livePartnerSharingActive,
+    error: locError,
+    socketError,
+    battery,
+    emitSharingToggle,
+  } = useLocationSocket({
+    enabled: Boolean(token && user?._id),
+    isSharing: sharingActive,
+    token,
+  });
 
-  const [socket, setSocket] = useState(null);
   const [partner, setPartner] = useState(null);
   const [partnerLocation, setPartnerLocation] = useState(null);
   const [partnerTrail, setPartnerTrail] = useState([]);
+  const [myTrail, setMyTrail] = useState([]);
   const [distance, setDistance] = useState(null);
   const [isMovingToward, setIsMovingToward] = useState(false);
-  const [sharingActive, setSharingActive] = useState(true);
   const [partnerSharingActive, setPartnerSharingActive] = useState(true);
   const [showHugAnimation, setShowHugAnimation] = useState(false);
   const [showArrivalAnimation, setShowArrivalAnimation] = useState(false);
@@ -163,10 +208,15 @@ export default function LiveLocation() {
   const [toast, setToast] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isSheetExpanded, setIsSheetExpanded] = useState(false);
   const arrivalTimeoutRef = useRef(null);
   const toastTimeoutRef = useRef(null);
   const onMyWayNotifiedRef = useRef(false);
+  const arrivalCelebratedRef = useRef(false);
   const lastZoneStateRef = useRef({});
+
+  const sheetControls = useAnimation();
+  const sheetY = useMotionValue(0);
 
   const partnerName = partner?.name || 'Partner';
   const bothSharingActive = sharingActive && partnerSharingActive;
@@ -189,6 +239,17 @@ export default function LiveLocation() {
   const isTogetherNow =
     bothSharingActive && displayDistance !== null && displayDistance <= TOGETHER_DISTANCE_KM;
 
+  useEffect(() => {
+    if (isTogetherNow && !arrivalCelebratedRef.current) {
+      arrivalCelebratedRef.current = true;
+      setShowArrivalAnimation(true);
+      navigator.vibrate?.([100, 50, 100, 50, 100]);
+      window.setTimeout(() => setShowArrivalAnimation(false), 3200);
+    } else if (!isTogetherNow) {
+      arrivalCelebratedRef.current = false;
+    }
+  }, [isTogetherNow]);
+
   const etaMinutes = useMemo(
     () => getEtaMinutes(displayDistance, partnerLocation?.speed),
     [displayDistance, partnerLocation?.speed]
@@ -202,7 +263,22 @@ export default function LiveLocation() {
 
   const statusLine = useMemo(() => {
     if (!sharingActive) return 'You paused location sharing';
-    if (!partnerSharingActive) return `${partnerName} paused location sharing`;
+    
+    if (!partnerSharingActive) {
+      if (!partnerLocation) return `${partnerName} paused location sharing`;
+      
+      const place = getShortAddress(partnerLocation) || activePartnerZone?.name;
+      if (place) return `Paused • Last seen ${lastUpdatedText || 'recently'} near ${place}`;
+      
+      if (partnerLocation.latitude && partnerLocation.longitude) {
+        const lat = Number(partnerLocation.latitude).toFixed(3);
+        const lng = Number(partnerLocation.longitude).toFixed(3);
+        return `Paused • Last seen ${lastUpdatedText || 'recently'} near ${lat}, ${lng}`;
+      }
+      
+      return `Paused • Last seen ${lastUpdatedText || 'recently'}`;
+    }
+
     if (!partnerLocation) return `Waiting for ${partnerName}'s live location`;
     if (isTogetherNow) return "You're together right now";
 
@@ -259,23 +335,11 @@ export default function LiveLocation() {
     }
   }, []);
 
-  // Initialize Socket.io
+  // Socket events that are specific to the LiveLocation UI (hugs, geofencing, etc)
   useEffect(() => {
-    if (!token || !user?._id) return;
+    if (!socket || !user?._id) return;
 
-    const newSocket = io(API_URL, {
-      auth: { token },
-      reconnection: true,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
-      reconnectionAttempts: 5,
-    });
-
-    newSocket.on('connect', () => {
-      console.log('Socket connected');
-    });
-
-    newSocket.on('location:update', (data) => {
+    const handlePartnerLocation = (data) => {
       if (data?.userId && String(data.userId) === String(user._id)) return;
 
       const nextLocation = {
@@ -291,9 +355,9 @@ export default function LiveLocation() {
       if (trailPoint) {
         setPartnerTrail((prev) => pruneTrail([...prev, trailPoint]));
       }
-    });
+    };
 
-    newSocket.on('location:sharing-state', (data) => {
+    const handlePartnerSharingState = (data) => {
       const isMe = data?.userId && String(data.userId) === String(user._id);
       const nextSharingState = data?.sharingActive === true;
 
@@ -308,39 +372,43 @@ export default function LiveLocation() {
           'privacy'
         );
       }
-    });
+    };
 
-    newSocket.on('hug:received', () => {
+    const handleHug = () => {
       setShowHugAnimation(true);
       navigator.vibrate?.([200, 100, 200]);
       showToast(`${partnerName} sent you a hug`, 'warm');
       window.setTimeout(() => setShowHugAnimation(false), 1000);
-    });
+    };
 
-    newSocket.on('arrival:celebrate', () => {
+    const handleArrival = () => {
       setShowArrivalAnimation(true);
       navigator.vibrate?.([100, 50, 100, 50, 100]);
       showToast('You found each other', 'celebrate');
       window.setTimeout(() => setShowArrivalAnimation(false), 3200);
-    });
+    };
 
-    newSocket.on('geofence:event', (data) => {
+    const handleGeofence = (data) => {
       if (data?.userId && String(data.userId) === String(user._id)) return;
       const eventText = data?.eventType === 'exit' ? 'left' : 'reached';
       showToast(`${partnerName} ${eventText} ${data?.zoneName || 'a safe zone'}`, 'zone');
-    });
+    };
 
-    newSocket.on('disconnect', () => {
-      console.log('Socket disconnected');
-    });
+    socket.on('partner:location', handlePartnerLocation);
+    socket.on('partner:sharingChanged', handlePartnerSharingState);
+    socket.on('hug:received', handleHug);
+    socket.on('arrival:celebrate', handleArrival);
+    socket.on('geofence:event', handleGeofence);
 
-    setSocket(newSocket);
+    return () => {
+      socket.off('partner:location', handlePartnerLocation);
+      socket.off('partner:sharingChanged', handlePartnerSharingState);
+      socket.off('hug:received', handleHug);
+      socket.off('arrival:celebrate', handleArrival);
+      socket.off('geofence:event', handleGeofence);
+    };
+  }, [socket, partnerName, showToast, user?._id]);
 
-    return () => newSocket.close();
-  }, [partnerName, showToast, token, user?._id]);
-
-  // Use Socket.io for location broadcasting only while consent is active.
-  useLocationSocket(socket, sharingActive ? location : null, battery);
 
   const fetchPartnerSnapshot = useCallback(async () => {
     if (!token) return false;
@@ -391,6 +459,20 @@ export default function LiveLocation() {
         if (zonesRes.ok) {
           const data = await zonesRes.json();
           if (!cancelled) setSafeZones(data.safeZones || []);
+        }
+
+        // Fetch own trail
+        const myTrailRes = await fetch(`${API_URL}/api/location/history?hours=24`, { headers });
+        if (myTrailRes.ok) {
+          const trailData = await myTrailRes.json();
+          if (!cancelled && Array.isArray(trailData)) setMyTrail(trailData);
+        }
+
+        // Fetch partner trail
+        const partnerTrailRes = await fetch(`${API_URL}/api/location/history?hours=24&target=partner`, { headers });
+        if (partnerTrailRes.ok) {
+          const pTrailData = await partnerTrailRes.json();
+          if (!cancelled && Array.isArray(pTrailData)) setPartnerTrail(pTrailData);
         }
 
         await fetchDistanceStats();
@@ -539,40 +621,9 @@ export default function LiveLocation() {
     setActiveZoneStatuses(nextStatuses);
   }, [bothSharingActive, partnerLocation, partnerName, safeZones, showToast, socket]);
 
-  // Start location watching on mount
-  useEffect(() => {
-    startWatching();
-    return () => stopWatching();
-  }, [startWatching, stopWatching]);
 
-  // Update location on server
-  useEffect(() => {
-    if (!location || !isWatching || !sharingActive || !token) return;
 
-    const updateLocationOnServer = async () => {
-      try {
-        await fetch(`${API_URL}/api/location/update`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            latitude: location.latitude,
-            longitude: location.longitude,
-            accuracy: location.accuracy,
-            battery,
-            speed: location.speed,
-            heading: location.heading,
-          }),
-        });
-      } catch (err) {
-        console.error('Error updating location on server:', err);
-      }
-    };
 
-    updateLocationOnServer();
-  }, [battery, isWatching, location, sharingActive, token]);
 
   useEffect(() => {
     return () => {
@@ -664,11 +715,43 @@ export default function LiveLocation() {
           safeZones={safeZones}
           user={user}
           partner={partner}
+          myTrail={myTrail}
           partnerTrail={partnerTrail}
           sharingActive={sharingActive}
           partnerSharingActive={partnerSharingActive}
           memoryPins={memoryPins}
         />
+
+        {/* DEV ONLY: Simulate movement button */}
+        {process.env.NODE_ENV === 'development' && (
+          <button
+            onClick={() => {
+              if (!partnerLocation) return;
+              setPartnerLocation(prev => ({
+                ...prev,
+                latitude: prev.latitude + (Math.random() - 0.5) * 0.002, // jump by up to ~100m
+                longitude: prev.longitude + (Math.random() - 0.5) * 0.002,
+                lastUpdated: new Date().toISOString()
+              }));
+            }}
+            style={{
+              position: 'absolute',
+              top: '80px',
+              right: '20px',
+              zIndex: 9999,
+              background: '#000',
+              color: '#fff',
+              padding: '8px 16px',
+              borderRadius: '8px',
+              fontSize: '14px',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+              border: '2px solid #333'
+            }}
+          >
+            Simulate Partner Move
+          </button>
+        )}
 
         <motion.div
           className="journey-card"
@@ -725,13 +808,27 @@ export default function LiveLocation() {
 
       <motion.div
         className="bottom-sheet"
-        initial={{ y: 300 }}
-        animate={{ y: 0 }}
-        transition={{ type: 'spring', damping: 20 }}
+        layout
+        initial={{ y: 100, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+        onClick={() => {
+          if (!isSheetExpanded) setIsSheetExpanded(true);
+        }}
+        drag="y"
+        dragConstraints={{ top: 0, bottom: 0 }}
+        dragElastic={0.1}
+        onDragEnd={(e, info) => {
+          if (info.offset.y > 50 || info.velocity.y > 500) {
+            setIsSheetExpanded(false);
+          } else if (info.offset.y < -50 || info.velocity.y < -500) {
+            setIsSheetExpanded(true);
+          }
+        }}
       >
         <div className="sheet-handle"></div>
 
-        <div className="partner-status">
+        <motion.div layout className="partner-status">
           <div className="partner-info">
             <div className={`profile-avatar ${partnerSharingActive ? 'is-live' : 'is-paused'}`}>
               {partner?.avatarUrl ? (
@@ -756,7 +853,24 @@ export default function LiveLocation() {
           {partnerLocation?.battery && (
             <div className="battery-badge">Battery {Math.round(partnerLocation.battery)}%</div>
           )}
-        </div>
+        </motion.div>
+
+        <motion.div layout className="quick-actions">
+          <QuickAction className="quick-action-ride" icon={<FiNavigation />} label="Ride" />
+          <QuickAction className="quick-action-chat" icon={<FiMessageCircle />} label="Chat" />
+          <QuickAction className="quick-action-weather" icon={<FiCloudRain />} label="Weather" />
+          <QuickAction className="quick-action-call" icon={<FiPhoneCall />} label="Call" />
+          <QuickAction className="quick-action-memory" icon={<FiHeart />} label="Memory" onClick={handleDropMemoryPin} />
+        </motion.div>
+
+        <AnimatePresence>
+        {isSheetExpanded && (
+        <motion.div 
+          className="sheet-expandable-content" 
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+          exit={{ opacity: 0, height: 0 }}
+        >
 
         <div className="privacy-strip">
           <span className={`consent-pill ${sharingActive ? 'is-on' : 'is-paused'}`}>
@@ -772,37 +886,6 @@ export default function LiveLocation() {
             Trail clears in 48h
           </span>
         </div>
-
-        <div className="location-insights">
-          <div className="insight-card">
-            <strong>
-              {getDistanceInsightText(displayDistance, distanceStats)}
-            </strong>
-            <span>{displayDistance !== null && displayDistance < NEAR_DISTANCE_KM ? 'live now' : distanceStats ? 'this month' : 'updates when both markers are live'}</span>
-          </div>
-          <div className="insight-card">
-            <strong>
-              {distanceStats ? getMeetingInsightText(distanceStats, isTogetherNow) : `${safeZones.length} safe zones`}
-            </strong>
-            <span>{isTogetherNow ? 'inside 50 m' : distanceStats ? 'this month' : 'Home, college, office alerts'}</span>
-          </div>
-        </div>
-
-        {safeZones.length > 0 && (
-          <div className="safe-zone-chips">
-            {safeZones.map((zone) => {
-              const zoneKey = getZoneKey(zone);
-              return (
-                <span
-                  key={zoneKey}
-                  className={`zone-chip ${activeZoneStatuses[zoneKey] ? 'is-active' : ''}`}
-                >
-                  {zone.emoji || '📍'} {zone.name}
-                </span>
-              );
-            })}
-          </div>
-        )}
 
         <div className="actions">
           <motion.button
@@ -825,16 +908,51 @@ export default function LiveLocation() {
           </motion.button>
         </div>
 
-        <div className="quick-actions">
-          <QuickAction className="quick-action-ride" icon={<FiNavigation />} label="Ride" />
-          <QuickAction className="quick-action-chat" icon={<FiMessageCircle />} label="Chat" />
-          <QuickAction className="quick-action-weather" icon={<FiCloudRain />} label="Weather" />
-          <QuickAction className="quick-action-call" icon={<FiPhoneCall />} label="Call" />
-          <QuickAction className="quick-action-memory" icon={<FiHeart />} label="Memory" onClick={handleDropMemoryPin} />
+        <div className="location-insights">
+          <div className="insight-card">
+            <strong>
+              {getDistanceInsightText(displayDistance, distanceStats)}
+            </strong>
+            <span>{displayDistance !== null && displayDistance < NEAR_DISTANCE_KM ? 'live now' : distanceStats ? 'this month' : 'updates when both markers are live'}</span>
+          </div>
+          <div className="insight-card">
+            <strong>
+              {distanceStats ? getMeetingInsightText(distanceStats, isTogetherNow) : `${safeZones.length} safe zones`}
+            </strong>
+            <span>{isTogetherNow ? 'inside 50 m' : distanceStats ? 'this month' : 'Home, college, office alerts'}</span>
+          </div>
+          <div className="insight-card">
+            <strong>
+              {/* TODO: Implement real meetup counter on backend */}
+              0 meetups
+            </strong>
+            <span>this month</span>
+          </div>
         </div>
+
+        {safeZones.length > 0 && (
+          <div className="safe-zone-chips">
+            {safeZones.map((zone) => {
+              const zoneKey = getZoneKey(zone);
+              return (
+                <span
+                  key={zoneKey}
+                  className={`zone-chip ${activeZoneStatuses[zoneKey] ? 'is-active' : ''}`}
+                >
+                  {zone.emoji || '📍'} {zone.name}
+                </span>
+              );
+            })}
+          </div>
+        )}
+
+        <HistorySparkline token={token} partnerName={partnerName} />
 
         {error && <div className="error-message">{error}</div>}
         {locError && <div className="error-message">{locError}</div>}
+        </motion.div>
+        )}
+        </AnimatePresence>
       </motion.div>
     </div>
   );
@@ -846,6 +964,7 @@ function QuickAction({ className, icon, label, onClick }) {
       <button
         className={`quick-action ${className}`}
         title={label}
+        aria-label={label}
         onClick={onClick}
         type="button"
       >
@@ -882,6 +1001,76 @@ function ArrivalConfetti() {
           {['💛', '💕', '🎉', '✨'][Math.floor(Math.random() * 4)]}
         </motion.div>
       ))}
+    </div>
+  );
+}
+
+function HistorySparkline({ token, partnerName }) {
+  const [history, setHistory] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
+
+    fetch(`${API_URL}/api/location/history?hours=24&target=partner`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (!cancelled && Array.isArray(data)) {
+          setHistory(data);
+        }
+      })
+      .catch(err => console.error('Failed to load partner history', err))
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [token]);
+
+  if (loading) return <div className="sparkline-loading">Loading trail...</div>;
+  if (!history.length) return <div className="sparkline-empty">No recent movement</div>;
+
+  const lats = history.map(p => p.lat);
+  const lngs = history.map(p => p.lng);
+  const minLat = Math.min(...lats);
+  const maxLat = Math.max(...lats);
+  const minLng = Math.min(...lngs);
+  const maxLng = Math.max(...lngs);
+  
+  const latRange = maxLat - minLat || 0.001;
+  const lngRange = maxLng - minLng || 0.001;
+
+  const points = history.map(p => {
+    const x = ((p.lng - minLng) / lngRange) * 100;
+    const y = 30 - (((p.lat - minLat) / latRange) * 30);
+    return `${x},${y}`;
+  }).join(' ');
+
+  return (
+    <div className="history-sparkline-container">
+      <div className="sparkline-header">
+        <h4>{partnerName}'s 24h Trail</h4>
+        <span className="sparkline-count">{history.length} points</span>
+      </div>
+      <svg viewBox="-5 -5 110 40" className="history-sparkline">
+        <polyline 
+          points={points} 
+          fill="none" 
+          stroke="url(#gradient)" 
+          strokeWidth="3" 
+          strokeLinecap="round" 
+          strokeLinejoin="round" 
+        />
+        <defs>
+          <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#ec4899" />
+            <stop offset="100%" stopColor="#f97316" />
+          </linearGradient>
+        </defs>
+      </svg>
     </div>
   );
 }

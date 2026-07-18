@@ -1,185 +1,160 @@
 const Location = require('../models/Location');
+const LocationHistory = require('../models/LocationHistory');
 const SafeZone = require('../models/SafeZone');
 const User = require('../models/User');
+const { calculateDistance } = require('../services/geolocationService');
 const {
-  calculateDistance,
-  isWithinGeofence,
-  isMovingTowardTarget,
-} = require('../services/geolocationService');
+  saveUserLocation,
+  serializePartnerLocation,
+  setUserLocationSharing,
+} = require('../services/locationService');
 
-const TRAIL_LOOKBACK_MS = 6 * 60 * 60 * 1000;
 const MEETING_DISTANCE_KM = 0.1;
 const MEETING_MIN_DURATION_MS = 5 * 60 * 1000;
 
-// POST /api/location/update
-// Store user's current location
-// Body: { latitude, longitude, accuracy, battery, speed, heading }
-exports.updateLocation = async (req, res) => {
+function getAuthenticatedUserId(req) {
+  return req.user?._id || req.user?.id;
+}
+
+function handleLocationServiceError(res, error, fallbackMessage) {
+  if (error.statusCode && error.statusCode < 500) {
+    return res.status(error.statusCode).json({ message: error.message });
+  }
+
+  console.error(fallbackMessage, error);
+  return res.status(500).json({ message: fallbackMessage });
+}
+
+async function updateSharingFlag(req, res, isSharing, message) {
   try {
-    const userId = req.user.id; // From auth middleware
-    const { latitude, longitude, accuracy, battery, speed, heading } = req.body;
+    const userId = getAuthenticatedUserId(req);
+    const result = await setUserLocationSharing(userId, isSharing);
 
-    // Validate input
-    if (typeof latitude !== 'number' || typeof longitude !== 'number') {
-      return res.status(400).json({ message: 'Invalid coordinates' });
-    }
-
-    // Create a time-series point. MongoDB TTL removes old points after 48h.
-    const location = await Location.create({
-      userId,
-      geometry: {
-        type: 'Point',
-        coordinates: [longitude, latitude], // GeoJSON order: [lng, lat]
-      },
-      latitude,
-      longitude,
-      accuracy: accuracy || null,
-      battery: battery || null,
-      speed: speed || null,
-      heading: heading || null,
-      sharingActive: true,
-      updatedAt: new Date(),
-    });
-
-    // Emit to socket.io (handled in server.js)
-    // Socket event will be broadcast by the listener
     res.json({
-      message: 'Location updated',
-      location: {
-        id: location._id,
-        latitude: location.latitude,
-        longitude: location.longitude,
-        battery: location.battery,
-        speed: location.speed,
-        heading: location.heading,
-        lastUpdated: location.updatedAt,
-      },
+      message,
+      isSharing: result.isSharing,
+      sharingActive: result.isSharing,
     });
   } catch (error) {
-    console.error('Error updating location:', error);
-    res.status(500).json({ message: 'Failed to update location', error: error.message });
+    handleLocationServiceError(res, error, 'Failed to update location sharing');
+  }
+}
+
+// POST /api/location/update
+// Store user's current location
+// Body: { lat, lng, accuracy, speed, batteryLevel }
+exports.updateLocation = async (req, res) => {
+  try {
+    const userId = getAuthenticatedUserId(req);
+    const result = await saveUserLocation(userId, req.body);
+    res.json(result.location);
+  } catch (error) {
+    handleLocationServiceError(res, error, 'Failed to update location');
   }
 };
 
 // GET /api/location/partner
-// Get partner's current location (if both are sharing)
+// Get partner's current shared location
 exports.getPartnerLocation = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = getAuthenticatedUserId(req);
+    if (!userId) {
+      return res.status(401).json({ message: 'Not authorized' });
+    }
 
-    // Find current user's partner
-    const user = await User.findById(userId);
+    const user = await User.findById(userId).select('partnerId');
     if (!user || !user.partnerId) {
-      return res.status(404).json({ message: 'No partner linked' });
+      return res.status(404).json({ message: 'No partner found' });
     }
 
-    // Get partner's latest location
-    const partnerLocation = await Location.findOne({ userId: user.partnerId })
-      .sort({ createdAt: -1 });
-
-    const partnerUser = await User.findById(user.partnerId);
-    const trailSince = new Date(Date.now() - TRAIL_LOOKBACK_MS);
-    const partnerTrail = await Location.find({
-      userId: user.partnerId,
-      createdAt: { $gte: trailSince },
-    })
-      .sort({ createdAt: 1 })
-      .limit(120)
-      .select('latitude longitude createdAt updatedAt sharingActive');
-
-    // Calculate distance between us and partner
-    const myLocation = await Location.findOne({ userId }).sort({ createdAt: -1 });
-    const distance = myLocation && partnerLocation
-      ? calculateDistance(
-          myLocation.latitude,
-          myLocation.longitude,
-          partnerLocation.latitude,
-          partnerLocation.longitude
-        )
-      : null;
-
-    if (!partnerLocation) {
-      return res.json({
-        partnerId: user.partnerId,
-        partner: {
-          name: partnerUser ? partnerUser.name : 'Partner',
-          avatarUrl: partnerUser ? partnerUser.avatarUrl : '',
-        },
-        location: null,
-        trail: [],
-        locationState: 'waiting',
-        distanceKm: null,
-      });
+    const partner = await User.findById(user.partnerId).select('location');
+    if (!partner) {
+      return res.status(404).json({ message: 'No partner found' });
     }
 
-    res.json({
-      partnerId: user.partnerId,
-      partner: {
-        name: partnerUser ? partnerUser.name : 'Partner',
-        avatarUrl: partnerUser ? partnerUser.avatarUrl : '',
-      },
-      location: {
-        latitude: partnerLocation.latitude,
-        longitude: partnerLocation.longitude,
-        accuracy: partnerLocation.accuracy,
-        battery: partnerLocation.battery,
-        speed: partnerLocation.speed,
-        heading: partnerLocation.heading,
-        address: partnerLocation.address,
-        lastUpdated: partnerLocation.updatedAt,
-        sharingActive: partnerLocation.sharingActive,
-      },
-      trail: partnerTrail.map((point) => ({
-        latitude: point.latitude,
-        longitude: point.longitude,
-        timestamp: point.updatedAt || point.createdAt,
-        sharingActive: point.sharingActive,
-      })),
-      locationState: partnerLocation.sharingActive ? 'live' : 'paused',
-      distanceKm: distance,
-    });
+    res.json(serializePartnerLocation(partner.location));
   } catch (error) {
     console.error('Error fetching partner location:', error);
     res.status(500).json({ message: 'Failed to fetch partner location' });
   }
 };
 
-// POST /api/location/pause
-// Pause location sharing temporarily
-exports.pauseLocationSharing = async (req, res) => {
+// POST /api/location/sharing
+// Toggle current user's location sharing state
+exports.setLocationSharing = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = getAuthenticatedUserId(req);
+    const { isSharing } = req.body || {};
+    const result = await setUserLocationSharing(userId, isSharing);
 
-    await Location.findOneAndUpdate(
-      { userId },
-      { sharingActive: false, updatedAt: new Date() },
-      { sort: { createdAt: -1 }, new: true }
-    );
-
-    res.json({ message: 'Location sharing paused', sharingActive: false });
+    res.json({ message: 'Location sharing updated', isSharing: result.isSharing });
   } catch (error) {
-    console.error('Error pausing location:', error);
-    res.status(500).json({ message: 'Failed to pause location sharing' });
+    handleLocationServiceError(res, error, 'Failed to update location sharing');
   }
 };
 
-// POST /api/location/resume
-// Resume location sharing
-exports.resumeLocationSharing = async (req, res) => {
+// GET /api/location/history?hours=24&target=partner
+// Get location trail
+exports.getOwnLocationHistory = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = getAuthenticatedUserId(req);
+    if (!userId) {
+      return res.status(401).json({ message: 'Not authorized' });
+    }
 
-    await Location.findOneAndUpdate(
-      { userId },
-      { sharingActive: true, updatedAt: new Date() },
-      { sort: { createdAt: -1 }, new: true }
-    );
+    const target = req.query.target;
+    let targetUserId = userId;
 
-    res.json({ message: 'Location sharing resumed', sharingActive: true });
+    if (target === 'partner') {
+      const user = await User.findById(userId);
+      if (!user || !user.partnerId) {
+        return res.status(404).json({ message: 'No partner linked' });
+      }
+      
+      const partner = await User.findById(user.partnerId).select('location');
+      if (!partner) {
+        return res.status(404).json({ message: 'No partner found' });
+      }
+      
+      // Enforce sharing rule
+      if (partner.location?.isSharing === false) {
+        return res.json([]); // Return empty trail if partner paused sharing
+      }
+      
+      targetUserId = user.partnerId;
+    }
+
+    const hours = req.query.hours === undefined ? 24 : Number(req.query.hours);
+    if (!Number.isFinite(hours) || hours <= 0) {
+      return res.status(400).json({ message: 'hours must be a positive number' });
+    }
+
+    const since = new Date(Date.now() - hours * 60 * 60 * 1000);
+    const history = await LocationHistory.find({
+      userId: targetUserId,
+      timestamp: { $gte: since },
+    })
+      .sort({ timestamp: 1 })
+      .select('lat lng timestamp -_id')
+      .lean();
+
+    res.json(history);
   } catch (error) {
-    console.error('Error resuming location:', error);
-    res.status(500).json({ message: 'Failed to resume location sharing' });
+    console.error('Error fetching location history:', error);
+    res.status(500).json({ message: 'Failed to fetch location history' });
   }
+};
+
+// POST /api/location/pause
+// Backward-compatible alias for older clients
+exports.pauseLocationSharing = async (req, res) => {
+  await updateSharingFlag(req, res, false, 'Location sharing paused');
+};
+
+// POST /api/location/resume
+// Backward-compatible alias for older clients
+exports.resumeLocationSharing = async (req, res) => {
+  await updateSharingFlag(req, res, true, 'Location sharing resumed');
 };
 
 // POST /api/location/safe-zone
