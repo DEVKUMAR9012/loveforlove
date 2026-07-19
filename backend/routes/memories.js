@@ -7,11 +7,15 @@ const { captionRules, validate } = require('../middleware/validators');
 const multer = require('multer');
 
 // Memory storage — files never touch disk, only held in RAM buffer
-const upload = multer({ storage: multer.memoryStorage() });
+// 50MB limit to prevent RAM exhaustion from large videos
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
+});
 
 router.get('/', protect, memoriesController.list);
 router.post('/', protect, memoriesController.create);
-router.post('/upload', protect, uploadLimiter, upload.single('file'), memoriesController.uploadImage);
+router.post('/upload', protect, uploadLimiter, upload.single('file'), memoriesController.uploadMedia);
 router.get('/:id', protect, memoriesController.get);
 router.delete('/:id', protect, memoriesController.delete);
 

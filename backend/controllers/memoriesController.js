@@ -19,15 +19,18 @@ function uploadBufferToCloudinary(buffer, options) {
   });
 }
 
-exports.uploadImage = async (req, res) => {
+exports.uploadMedia = async (req, res) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ error: 'No image provided' });
+      return res.status(400).json({ error: 'No file provided' });
     }
+
+    const isVideo = req.file.mimetype.startsWith('video/');
 
     // Stream buffer straight to Cloudinary — zero local storage
     const result = await uploadBufferToCloudinary(req.file.buffer, {
       folder: 'our-universe',
+      resource_type: 'auto',
     });
 
     // Save memory record with Cloudinary URL
@@ -37,11 +40,15 @@ exports.uploadImage = async (req, res) => {
       date:        new Date(),
       description: 'Uploaded from Media Gallery',
       imageUrl:    result.secure_url,
+      mediaType:   isVideo ? 'video' : 'image',
     });
     await m.save();
 
     res.status(201).json(m);
   } catch (err) {
+    if (err.message === 'File too large') {
+       return res.status(413).json({ error: 'File exceeds the 50MB limit' });
+    }
     res.status(500).json({ error: err.message });
   }
 };

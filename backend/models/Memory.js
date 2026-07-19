@@ -25,6 +25,11 @@ const MemorySchema = new mongoose.Schema({
     trim: true,
     default: '',
   },
+  mediaType: {
+    type: String,
+    enum: ['image', 'video'],
+    default: 'image',
+  },
   caption: {
     type: String,
     trim: true,

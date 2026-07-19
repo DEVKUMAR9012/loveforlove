@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { HiOutlineCloudUpload, HiOutlineX, HiOutlinePhotograph, HiOutlineExclamationCircle } from 'react-icons/hi';
+import { HiOutlineCloudUpload, HiOutlineX, HiOutlinePhotograph, HiOutlineExclamationCircle, HiOutlinePlay } from 'react-icons/hi';
 import { getApiBaseUrl } from '../utils/api';
 
 // ---------------------------------------------------------------------------
@@ -55,6 +55,7 @@ function MediaGallery() {
           src: m.imageUrl,
           caption: m.caption || '',
           date: m.createdAt ? new Date(m.createdAt) : null,
+          mediaType: m.mediaType || 'image',
           rotation: ROTATIONS[i % ROTATIONS.length],
         }))
         .reverse();
@@ -72,7 +73,17 @@ function MediaGallery() {
   }, [fetchMemories]);
 
   const uploadFiles = async (fileList) => {
-    const files = Array.from(fileList).filter((f) => f.type.startsWith('image/'));
+    const allFiles = Array.from(fileList).filter((f) => f.type.startsWith('image/') || f.type.startsWith('video/'));
+    
+    // Check for 50MB limit
+    const MAX_SIZE = 50 * 1024 * 1024;
+    const files = allFiles.filter(f => f.size <= MAX_SIZE);
+    
+    if (allFiles.length > files.length) {
+      setLoadError(`Some files were skipped because they exceed the 50MB limit.`);
+      setTimeout(() => setLoadError(null), 4000);
+    }
+    
     if (!files.length) return;
 
     setIsUploading(true);
@@ -96,6 +107,7 @@ function MediaGallery() {
           id: saved._id,
           src: saved.imageUrl,
           caption: saved.caption || '',
+          mediaType: saved.mediaType || 'image',
           date: saved.createdAt ? new Date(saved.createdAt) : new Date(),
           rotation: ROTATIONS[Math.floor(Math.random() * ROTATIONS.length)],
         });
@@ -110,7 +122,7 @@ function MediaGallery() {
     setIsUploading(false);
     setUploadProgress({ done: 0, total: 0 });
     if (failures > 0) {
-      setLoadError(`${failures} of ${files.length} photo${files.length > 1 ? 's' : ''} didn't upload. Try those again.`);
+      setLoadError(`${failures} of ${files.length} file${files.length > 1 ? 's' : ''} didn't upload. Try those again.`);
     }
   };
 
@@ -287,7 +299,7 @@ function MediaGallery() {
 
           <input
             type="file"
-            accept="image/*"
+            accept="image/*,video/*"
             multiple
             ref={fileInputRef}
             onChange={handleImageUpload}
@@ -388,13 +400,26 @@ function MediaGallery() {
                   style={{ background: '#F4ECE3', boxShadow: '0 8px 20px rgba(0,0,0,0.35)' }}
                 >
                   <div className="overflow-hidden rounded-[2px]" style={{ background: '#1A1622' }}>
-                    <img
-                      src={img.src}
-                      alt={img.caption || 'A keepsake memory'}
-                      loading="lazy"
-                      decoding="async"
-                      className="w-full h-auto object-cover"
-                    />
+                    {img.mediaType === 'video' ? (
+                      <div className="relative">
+                        <video
+                          src={img.src}
+                          className="w-full h-auto object-cover"
+                          preload="metadata"
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                          <HiOutlinePlay className="text-4xl text-white opacity-80" />
+                        </div>
+                      </div>
+                    ) : (
+                      <img
+                        src={img.src}
+                        alt={img.caption || 'A keepsake memory'}
+                        loading="lazy"
+                        decoding="async"
+                        className="w-full h-auto object-cover"
+                      />
+                    )}
                   </div>
 
                   {/* Tape corners, appear on hover */}
@@ -456,12 +481,22 @@ function MediaGallery() {
                     boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)',
                   }}
                 >
-                  <img
-                    src={activeImage.srcFull || activeImage.src}
-                    alt={activeImage.caption || 'A keepsake memory'}
-                    className="w-full object-contain rounded-[2px]"
-                    style={{ maxHeight: 'calc(100vh - 12rem)' }}
-                  />
+                  {activeImage.mediaType === 'video' ? (
+                    <video
+                      src={activeImage.srcFull || activeImage.src}
+                      controls
+                      autoPlay
+                      className="w-full object-contain rounded-[2px]"
+                      style={{ maxHeight: 'calc(100vh - 12rem)' }}
+                    />
+                  ) : (
+                    <img
+                      src={activeImage.srcFull || activeImage.src}
+                      alt={activeImage.caption || 'A keepsake memory'}
+                      className="w-full object-contain rounded-[2px]"
+                      style={{ maxHeight: 'calc(100vh - 12rem)' }}
+                    />
+                  )}
                 </div>
 
                 <div
