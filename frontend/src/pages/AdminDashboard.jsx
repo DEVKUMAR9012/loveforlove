@@ -174,6 +174,33 @@ function AdminDashboard() {
   };
 
   // --- Report actions ---
+  const [approvingReportIds, setApprovingReportIds] = useState(new Set());
+
+  const handleApproveDisconnection = async (reportId) => {
+    if (!window.confirm('Approve disconnection? This will unlink both users and PERMANENTLY PURGE all their shared relationship data.')) return;
+
+    setApprovingReportIds(prev => new Set(prev).add(reportId));
+    setReportError('');
+    try {
+      const res = await fetch(`${backendUrl}/api/admin/reports/${reportId}/approve-disconnection`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Failed to approve disconnection');
+
+      setReports(prev => prev.map(r => r._id === reportId ? { ...r, status: 'resolved', description: data.report?.description || r.description } : r));
+      if (selectedReport?._id === reportId) {
+        setSelectedReport(prev => prev ? { ...prev, status: 'resolved', description: data.report?.description || prev.description } : null);
+      }
+      alert('Disconnection approved! Partner connection unlinked & all shared data purged.');
+    } catch (err) {
+      setReportError(err.message);
+    } finally {
+      setApprovingReportIds(prev => { const n = new Set(prev); n.delete(reportId); return n; });
+    }
+  };
+
   const handleReportStatusChange = async (reportId, newStatus) => {
     const previousStatus = reports.find(r => r._id === reportId)?.status;
     setReportError('');
@@ -386,7 +413,7 @@ function AdminDashboard() {
       {/* --- Reports Section --- */}
       <div className="glass rounded-[2rem] p-6 shadow-sm">
         <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-          <HiOutlineExclamationCircle className="text-blush-500" /> User Reports
+          <HiOutlineExclamationCircle className="text-blush-500" /> User Reports & Requests
         </h2>
         {reportError && (
           <div className="mb-4 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
@@ -408,6 +435,9 @@ function AdminDashboard() {
               };
               const updating = updatingReportIds.has(report._id);
               const deleting = deletingReportIds.has(report._id);
+              const approving = approvingReportIds.has(report._id);
+              const isDisconnectionReq = (report.title || '').toLowerCase().includes('partner disconnection request');
+
               return (
                 <div key={report._id} className="p-4 rounded-2xl bg-white/60 border border-gray-100 flex flex-col sm:flex-row sm:items-start gap-3">
                   <div className="flex-1 min-w-0">
@@ -418,14 +448,34 @@ function AdminDashboard() {
                       <span className="px-2 py-0.5 text-xs rounded-full bg-gray-100 text-gray-500 font-medium capitalize">
                         {report.category}
                       </span>
+                      {isDisconnectionReq && (
+                        <span className="px-2 py-0.5 text-xs rounded-full bg-red-100 text-red-700 font-bold">
+                          Disconnection Request
+                        </span>
+                      )}
                     </div>
                     <p className="font-semibold text-gray-800 truncate">{report.title}</p>
-                    <p className="text-xs text-gray-400 mt-0.5 line-clamp-2">{report.description}</p>
-                    <p className="text-xs text-gray-300 mt-1">
+                    <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{report.description}</p>
+                    <p className="text-xs text-gray-400 mt-1">
                       {report.userEmail} · {new Date(report.createdAt).toLocaleDateString()}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2 self-end sm:self-start">
+                  <div className="flex items-center gap-2 self-end sm:self-start flex-wrap">
+                    {isDisconnectionReq && report.status !== 'resolved' && (
+                      <button
+                        onClick={() => handleApproveDisconnection(report._id)}
+                        disabled={approving}
+                        className="px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition flex items-center gap-1 shadow-sm disabled:opacity-50"
+                        title="Approve disconnection & purge all shared data"
+                      >
+                        {approving ? (
+                          <HiOutlineRefresh className="animate-spin text-sm" />
+                        ) : (
+                          <HiOutlineUserRemove className="text-sm" />
+                        )}
+                        <span>Approve & Purge Data</span>
+                      </button>
+                    )}
                     <button
                       onClick={() => openReportDetail(report)}
                       className="p-1.5 rounded-lg text-gray-400 hover:text-blush-600 hover:bg-blush-50 transition"
@@ -541,6 +591,15 @@ function AdminDashboard() {
               <p>{new Date(selectedReport.createdAt).toLocaleString()}</p>
             </div>
             <div className="flex justify-end gap-2 pt-2">
+              {(selectedReport.title || '').toLowerCase().includes('partner disconnection request') && selectedReport.status !== 'resolved' && (
+                <button
+                  onClick={() => handleApproveDisconnection(selectedReport._id)}
+                  disabled={approvingReportIds.has(selectedReport._id)}
+                  className="px-4 py-1.5 rounded-xl text-sm bg-red-600 hover:bg-red-700 text-white font-bold flex items-center gap-1 shadow-sm disabled:opacity-50"
+                >
+                  <HiOutlineUserRemove /> Approve & Purge Connection
+                </button>
+              )}
               <button
                 onClick={() => handleDeleteReport(selectedReport._id)}
                 className="px-3 py-1.5 rounded-xl text-sm text-red-600 hover:bg-red-50 flex items-center gap-1"

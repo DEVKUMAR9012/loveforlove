@@ -7,6 +7,18 @@ const User = require('../models/User');
 const Memory = require('../models/Memory');
 const Message = require('../models/Message');
 
+const Report = require('../models/Report');
+const Snap = require('../models/Snap');
+const VoiceNote = require('../models/VoiceNote');
+const CalendarEvent = require('../models/CalendarEvent');
+const Letter = require('../models/Letter');
+const Location = require('../models/Location');
+const LocationHistory = require('../models/LocationHistory');
+const Mood = require('../models/Mood');
+const Notification = require('../models/Notification');
+const PartnerInvite = require('../models/PartnerInvite');
+const SafeZone = require('../models/SafeZone');
+
 // All routes require authentication and admin role
 router.use(apiLimiter);
 router.use(protect);
@@ -55,9 +67,6 @@ router.delete('/users/:id', async (req, res) => {
     // Delete user
     await User.findByIdAndDelete(req.params.id);
     
-    // (Optional) Here you would also delete their memories/messages to clean up, 
-    // but for simplicity we'll just delete the user document for now.
-    
     res.json({ message: 'User deleted successfully' });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -95,6 +104,70 @@ router.patch('/users/:id', async (req, res) => {
     res.json({ message: 'User updated successfully', user: updated });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// PUT /api/admin/reports/:id/approve-disconnection
+// Admin approves a partner disconnection request: unlinks partners and purges all shared data
+router.put('/reports/:id/approve-disconnection', async (req, res) => {
+  try {
+    const report = await Report.findById(req.params.id);
+    if (!report) return res.status(404).json({ error: 'Report not found' });
+
+    const user = await User.findById(report.userId);
+    if (!user) {
+      report.status = 'resolved';
+      await report.save();
+      return res.status(404).json({ error: 'Initiating user no longer exists.' });
+    }
+
+    const pairUserIds = [user._id];
+    let partner = null;
+
+    if (user.partnerId) {
+      pairUserIds.push(user.partnerId);
+      partner = await User.findById(user.partnerId);
+    }
+
+    // 1. Purge all shared relationship data created during connected time
+    await Promise.all([
+      Message.deleteMany({ userId: { $in: pairUserIds } }).catch(() => {}),
+      Memory.deleteMany({ userId: { $in: pairUserIds } }).catch(() => {}),
+      Snap.deleteMany({ $or: [{ senderId: { $in: pairUserIds } }, { recipientId: { $in: pairUserIds } }] }).catch(() => {}),
+      VoiceNote.deleteMany({ userId: { $in: pairUserIds } }).catch(() => {}),
+      CalendarEvent.deleteMany({ userId: { $in: pairUserIds } }).catch(() => {}),
+      Letter.deleteMany({ userId: { $in: pairUserIds } }).catch(() => {}),
+      Location.deleteMany({ userId: { $in: pairUserIds } }).catch(() => {}),
+      LocationHistory.deleteMany({ userId: { $in: pairUserIds } }).catch(() => {}),
+      Mood.deleteMany({ userId: { $in: pairUserIds } }).catch(() => {}),
+      Notification.deleteMany({ userId: { $in: pairUserIds } }).catch(() => {}),
+      PartnerInvite.deleteMany({ inviterId: { $in: pairUserIds } }).catch(() => {}),
+      SafeZone.deleteMany({ userId: { $in: pairUserIds } }).catch(() => {}),
+    ]);
+
+    // 2. Unlink both users and reset relationship date
+    user.partnerId = null;
+    user.relationshipStartDate = null;
+    await user.save();
+
+    if (partner) {
+      partner.partnerId = null;
+      partner.relationshipStartDate = null;
+      await partner.save();
+    }
+
+    // 3. Mark report as resolved
+    report.status = 'resolved';
+    report.description += `\n\n[ADMIN APPROVED]: Partner connection unlinked and all shared relationship data permanently purged.`;
+    await report.save();
+
+    res.json({
+      message: 'Disconnection request approved. Connection unlinked and all shared data purged successfully.',
+      report,
+    });
+  } catch (err) {
+    console.error('Error approving disconnection request:', err);
+    res.status(500).json({ error: err.message || 'Failed to approve disconnection' });
   }
 });
 

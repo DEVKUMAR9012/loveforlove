@@ -9,7 +9,9 @@ import {
   HiOutlineLogin,
   HiOutlineUserAdd,
 } from 'react-icons/hi';
+import { FaWhatsapp, FaShareAlt, FaCheck, FaHeart } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
+import { AnimatedMainLogo } from '../components/MainLogo';
 
 const normalizeInviteCode = (value) => String(value || '').toUpperCase().replace(/[\s-]/g, '').slice(0, 8);
 
@@ -86,8 +88,6 @@ function Invite() {
     }
   }, [previewCode]);
 
-  // Mount/unmount lifecycle only — must not depend on any state that changes
-  // while the component is mounted, or the cleanup fires on every re-render.
   useEffect(() => {
     mountedRef.current = true;
     return () => {
@@ -98,16 +98,11 @@ function Invite() {
     };
   }, []);
 
-  // Keep a ref to the latest previewCode so the URL-driven effect below can
-  // call it without needing it in its dependency array (it changes on every
-  // keystroke since it closes over `code`).
   const previewCodeRef = useRef(previewCode);
   useEffect(() => {
     previewCodeRef.current = previewCode;
   }, [previewCode]);
 
-  // Prefill + preview from ?code= in the URL. Only reruns when the URL
-  // actually changes, not on every keystroke in the input.
   useEffect(() => {
     const initialCode = normalizeInviteCode(searchParams.get('code') || '');
     if (initialCode.length === 8) {
@@ -167,6 +162,34 @@ function Invite() {
     copiedTimerRef.current = setTimeout(() => {
       safeSetState(setCopied, false);
     }, 1600);
+  };
+
+  const handleWhatsAppShare = () => {
+    if (!generatedInvite?.code) return;
+    const shareMessage = `Hey! 💖 Join my private space on loveforlove so we can share memories and stay connected! \n\nPartner Code: *${generatedInvite.code}*\nLink: ${shareUrl}`;
+    const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(shareMessage)}`;
+    window.open(url, '_blank');
+  };
+
+  const handleNativeShare = async () => {
+    if (!generatedInvite?.code) return;
+    const shareData = {
+      title: 'Join my private space on loveforlove 💖',
+      text: `Use my partner invite code ${generatedInvite.code} to connect with me!`,
+      url: shareUrl,
+    };
+
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          handleCopy();
+        }
+      }
+    } else {
+      handleCopy();
+    }
   };
 
   const handleAcceptInvite = async () => {
@@ -257,35 +280,100 @@ function Invite() {
                   {generatedInvite && (
                     <motion.div
                       layout
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -8 }}
-                      className="rounded-2xl border border-blush-100 bg-white/70 p-4"
+                      initial={{ opacity: 0, scale: 0.95, y: 15 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.95, y: -15 }}
+                      className="mt-4 flex flex-col gap-4"
                       key={`generated-${generatedInvite.code}`}
                     >
-                      <p className="text-xs font-semibold uppercase text-gray-400">Invitation code</p>
-                      <div className="mt-2 flex items-center justify-between gap-3">
-                        <code className="rounded-xl bg-gray-900 px-4 py-3 font-mono text-xl font-bold text-white">
-                          {generatedInvite.code}
-                        </code>
+                      {/* Beautiful Shareable Invite Card */}
+                      <div
+                        id="shareable-invite-card"
+                        className="relative overflow-hidden rounded-3xl p-6 text-white shadow-xl border border-white/20"
+                        style={{
+                          background: 'linear-gradient(135deg, #8b1c31 0%, #ee2a7b 55%, #f9ce34 100%)',
+                        }}
+                      >
+                        {/* Background Decorative Glow */}
+                        <div className="absolute -top-12 -right-12 w-36 h-36 bg-white/20 rounded-full blur-2xl pointer-events-none" />
+                        <div className="absolute -bottom-12 -left-12 w-36 h-36 bg-black/25 rounded-full blur-2xl pointer-events-none" />
+
+                        <div className="relative z-10 flex flex-col items-center text-center">
+                          {/* Brand Pill */}
+                          <div className="flex items-center gap-2 mb-3 bg-white/20 px-3.5 py-1.5 rounded-full backdrop-blur-md border border-white/25">
+                            <AnimatedMainLogo className="w-5 h-5 text-white" />
+                            <span className="font-bold text-xs tracking-wider uppercase text-white">loveforlove</span>
+                          </div>
+
+                          <h3 className="text-xl font-extrabold tracking-tight mb-1 text-white drop-shadow-sm">
+                            {user?.name ? `${user.name} invited you!` : "You're Invited!"}
+                          </h3>
+                          <p className="text-xs text-white/90 font-medium mb-4 max-w-xs leading-relaxed">
+                            Connect in a private, secure space created just for the two of us.
+                          </p>
+
+                          {/* Invite Code Display Box */}
+                          <div className="w-full bg-black/40 backdrop-blur-md border border-white/30 rounded-2xl p-4 mb-3 flex flex-col items-center shadow-inner">
+                            <span className="text-[10px] uppercase font-bold tracking-widest text-white/70 mb-1">
+                              PARTNER INVITE CODE
+                            </span>
+                            <span className="font-mono text-3xl font-black tracking-widest text-yellow-300 drop-shadow-md my-1">
+                              {generatedInvite.code}
+                            </span>
+                            {generatedExpiry && (
+                              <span className="text-[10px] text-white/70">Valid until {generatedExpiry}</span>
+                            )}
+                          </div>
+
+                          <p className="text-[11px] text-white/80 font-medium">
+                            Tap link or enter code to join instantly
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Action & Share Buttons */}
+                      <div className="flex flex-col gap-2.5">
+                        <div className="grid grid-cols-2 gap-2.5">
+                          {/* WhatsApp Share */}
+                          <button
+                            type="button"
+                            onClick={handleWhatsAppShare}
+                            className="flex items-center justify-center gap-2 py-3 px-4 rounded-2xl font-bold text-xs text-white bg-[#25D366] hover:bg-[#20bd5a] transition shadow-sm hover:shadow-md cursor-pointer"
+                          >
+                            <FaWhatsapp className="text-lg" />
+                            <span>WhatsApp</span>
+                          </button>
+
+                          {/* Native Share */}
+                          <button
+                            type="button"
+                            onClick={handleNativeShare}
+                            className="flex items-center justify-center gap-2 py-3 px-4 rounded-2xl font-bold text-xs text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:opacity-95 transition shadow-sm hover:shadow-md cursor-pointer"
+                          >
+                            <FaShareAlt className="text-base" />
+                            <span>Share Link</span>
+                          </button>
+                        </div>
+
+                        {/* Copy Direct Link */}
                         <button
                           type="button"
                           onClick={handleCopy}
-                          className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-600 transition hover:text-blush-600"
-                          aria-label="Copy invite link"
+                          className="flex items-center justify-center gap-2 w-full py-3 px-4 rounded-2xl font-bold text-xs text-gray-800 bg-white border border-gray-200 hover:bg-gray-50 transition shadow-xs cursor-pointer"
                         >
-                          <HiOutlineClipboardCopy className="text-xl" />
+                          {copied ? (
+                            <>
+                              <FaCheck className="text-emerald-500 text-base" />
+                              <span className="text-emerald-600">Copied to Clipboard!</span>
+                            </>
+                          ) : (
+                            <>
+                              <HiOutlineClipboardCopy className="text-lg text-gray-500" />
+                              <span>Copy Direct Invite Link</span>
+                            </>
+                          )}
                         </button>
                       </div>
-                      {shareUrl && (
-                        <p className="mt-3 break-all text-xs text-gray-400">{shareUrl}</p>
-                      )}
-                      {generatedExpiry && (
-                        <p className="mt-2 text-xs text-gray-400">Expires {generatedExpiry}</p>
-                      )}
-                      {copied && (
-                        <p className="mt-2 text-sm font-medium text-mint-700">Copied.</p>
-                      )}
                     </motion.div>
                   )}
                 </AnimatePresence>

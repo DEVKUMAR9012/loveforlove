@@ -76,9 +76,10 @@ export function LocationMap({
         attributionControl: true,
       });
 
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
         attribution:
-          '&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a>',
+          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        subdomains: 'abcd',
         maxZoom: 19,
       }).addTo(mapInstanceRef.current);
 
@@ -106,7 +107,7 @@ export function LocationMap({
       const myIcon = createAvatarIcon({
         avatarUrl: user?.avatarUrl,
         label: 'You',
-        borderColor: '#0ea5e9',
+        borderColor: '#00f2fe',
         isLive: sharingActive,
         isDimmed: !sharingActive,
         activity: myActivity,
@@ -132,10 +133,11 @@ export function LocationMap({
       } else {
         myAccuracyRef.current = L.circle(myLatLng, {
           radius: accuracyRadius,
-          color: '#0ea5e9',
-          weight: 1,
-          opacity: 0.35,
-          fillOpacity: 0.08,
+          color: '#00f2fe',
+          fillColor: '#00f2fe',
+          weight: 1.5,
+          opacity: 0.7,
+          fillOpacity: 0.15,
         }).addTo(map);
       }
     }
@@ -403,10 +405,10 @@ function updateConnectionLine(map, lineRef, myLatLng, partnerLatLng, isActive) {
 
   const latLngs = [myLatLng, partnerLatLng];
   const options = {
-    color: isActive ? '#f97316' : '#94a3b8',
-    weight: 3,
-    opacity: isActive ? 0.55 : 0.35,
-    dashArray: '8, 10',
+    color: isActive ? '#ff2a74' : '#64748b',
+    weight: 4,
+    opacity: isActive ? 0.85 : 0.4,
+    dashArray: '6, 8',
     lineCap: 'round',
     lineJoin: 'round',
   };
@@ -429,10 +431,10 @@ function updateTrails(map, myTrailRef, partnerTrailRef, myTrail, partnerTrail, p
     }
   } else {
     const myOptions = {
-      color: '#0ea5e9', // Sky blue to match You marker
-      weight: 3,
-      opacity: 0.5,
-      dashArray: '5, 8',
+      color: '#00f2fe', // Glowing Neon Cyan
+      weight: 4,
+      opacity: 0.8,
+      dashArray: '4, 6',
       lineJoin: 'round',
     };
     if (myTrailRef.current) {
@@ -452,10 +454,10 @@ function updateTrails(map, myTrailRef, partnerTrailRef, myTrail, partnerTrail, p
     }
   } else {
     const partnerOptions = {
-      color: partnerSharingActive ? '#ee2a7b' : '#94a3b8',
-      weight: 3,
-      opacity: partnerSharingActive ? 0.5 : 0.28,
-      dashArray: '5, 8',
+      color: partnerSharingActive ? '#ff2a74' : '#64748b', // Glowing Neon Pink
+      weight: 4,
+      opacity: partnerSharingActive ? 0.8 : 0.4,
+      dashArray: '4, 6',
       lineJoin: 'round',
     };
     if (partnerTrailRef.current) {

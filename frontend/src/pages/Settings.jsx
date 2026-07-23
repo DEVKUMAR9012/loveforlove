@@ -1,8 +1,8 @@
 // vibecheck-disable SECAI006
-import { useState, useRef } from 'react';
-import { motion } from 'framer-motion';
+import { useState, useRef, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
-import { HiOutlineCamera, HiOutlinePencil, HiOutlineCheck, HiOutlineX } from 'react-icons/hi';
+import { HiOutlineCamera, HiOutlinePencil, HiOutlineCheck, HiOutlineX, HiOutlineExclamation, HiOutlineTrash, HiOutlineClock } from 'react-icons/hi';
 
 function Settings() {
   const { user, backendUrl, updateRelationshipDate, updateAvatarUrl, updateName, updateEmail } = useAuth();
@@ -31,6 +31,33 @@ function Settings() {
   const [passwordValue, setPasswordValue] = useState('');
   const [savingEmail, setSavingEmail] = useState(false);
   const [emailMsg, setEmailMsg] = useState('');
+
+  // ── Disconnect Partner state ──
+  const [showDisconnectModal, setShowDisconnectModal] = useState(false);
+  const [disconnectReason, setDisconnectReason] = useState('');
+  const [confirmDisconnect, setConfirmDisconnect] = useState(false);
+  const [isDisconnecting, setIsDisconnecting] = useState(false);
+  const [disconnectMsg, setDisconnectMsg] = useState('');
+  const [isPendingDisconnection, setIsPendingDisconnection] = useState(false);
+
+  useEffect(() => {
+    const checkDisconnectionStatus = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+        const res = await fetch(`${backendUrl}/api/settings/disconnection-status`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setIsPendingDisconnection(!!data.isPending);
+        }
+      } catch (err) {
+        console.error('Failed to fetch disconnection status', err);
+      }
+    };
+    checkDisconnectionStatus();
+  }, [backendUrl]);
 
   const handleSaveDate = async (e) => {
     e.preventDefault();
@@ -145,8 +172,43 @@ function Settings() {
     alert('This feature will compile all your memories and messages into a beautiful PDF in the future!');
   };
 
+  const handleDisconnectPartner = async (e) => {
+    if (e) e.preventDefault();
+    if (!disconnectReason.trim()) {
+      setDisconnectMsg('Please provide a brief description / reason for breaking the connection.');
+      return;
+    }
+    if (!confirmDisconnect) {
+      setDisconnectMsg('Please check the confirmation box to proceed.');
+      return;
+    }
+
+    setIsDisconnecting(true);
+    setDisconnectMsg('');
+    try {
+      const res = await fetch(`${backendUrl}/api/settings/disconnect-partner`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: JSON.stringify({ reason: disconnectReason.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to submit disconnection request');
+
+      alert('Disconnection request submitted! Website admin will review your request to break connection and purge all shared data.');
+      setIsPendingDisconnection(true);
+      setShowDisconnectModal(false);
+    } catch (err) {
+      setDisconnectMsg(err.message || 'Failed to submit disconnection request.');
+    } finally {
+      setIsDisconnecting(false);
+    }
+  };
+
   const handleReset = async () => {
-    if (!window.confirm('Are you absolutely sure? This will disconnect you from your partner and reset your settings.')) return;
+    if (!window.confirm('Are you absolutely sure? This will disconnect you from your partner and reset all your settings and data.')) return;
     try {
       const res = await fetch(`${backendUrl}/api/settings/danger-zone`, {
         method: 'DELETE',
@@ -368,14 +430,135 @@ function Settings() {
       {/* ── Danger Zone ──────────────────────────────────────────────── */}
       <div className="bg-red-50 p-6 rounded-[2rem] shadow-sm border border-red-100">
         <h2 className="text-xl font-semibold text-red-800 mb-2">Danger Zone</h2>
-        <p className="text-sm text-red-600 mb-4">Disconnect from your partner and reset all relationship settings. This action is irreversible.</p>
-        <button
-          onClick={handleReset}
-          className="px-6 py-2 bg-red-500 text-white rounded-full font-medium hover:bg-red-600 transition"
-        >
-          Reset Account Data
-        </button>
+        <p className="text-sm text-red-600 mb-5">
+          Request to break your partner connection. Submitting a request sends a report to website admin with your description. Once website admin approves the request, your connection will be broken and all shared memories, messages, snaps, voice notes, and location histories will be permanently purged.
+        </p>
+
+        {isPendingDisconnection && (
+          <div className="bg-amber-50 border border-amber-200/80 rounded-2xl p-4 mb-5 flex items-start gap-3">
+            <HiOutlineClock className="text-2xl text-amber-600 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-bold text-amber-900 mb-0.5">Disconnection Request Pending Admin Approval</p>
+              <p className="text-xs text-amber-700 leading-relaxed">
+                Your request to break connection has been submitted to website admin. Connection unlinking and data purge will be completed automatically once approved by admin.
+              </p>
+            </div>
+          </div>
+        )}
+        
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={() => { setShowDisconnectModal(true); setDisconnectMsg(''); setDisconnectReason(''); setConfirmDisconnect(false); }}
+            disabled={isPendingDisconnection}
+            className="px-5 py-2.5 bg-red-600 text-white rounded-full font-semibold text-sm hover:bg-red-700 transition flex items-center gap-2 shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            <HiOutlineTrash className="text-base" />
+            {isPendingDisconnection ? 'Disconnection Request Pending' : 'Request Connection Break & Data Purge'}
+          </button>
+
+          <button
+            onClick={handleReset}
+            className="px-5 py-2.5 bg-white text-red-700 border border-red-200 rounded-full font-semibold text-sm hover:bg-red-100/50 transition"
+          >
+            Reset Account Data
+          </button>
+        </div>
       </div>
+
+      {/* ── Disconnect & Purge Confirmation Modal ──────────────────────── */}
+      <AnimatePresence>
+        {showDisconnectModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setShowDisconnectModal(false)}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl border border-red-100 relative overflow-hidden"
+            >
+              <button
+                onClick={() => setShowDisconnectModal(false)}
+                className="absolute top-4 right-4 w-9 h-9 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 transition"
+              >
+                <HiOutlineX />
+              </button>
+
+              <div className="flex items-center gap-3 mb-4 text-red-600">
+                <div className="w-12 h-12 rounded-2xl bg-red-100 flex items-center justify-center shrink-0">
+                  <HiOutlineExclamation className="text-2xl text-red-600" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900">Break Partner Connection</h3>
+                  <p className="text-xs text-red-500 font-medium">Sends admin report & purges all connected data</p>
+                </div>
+              </div>
+
+              <p className="text-sm text-gray-600 mb-4 leading-relaxed">
+                Breaking your connection will notify website admin and <strong className="text-red-700">permanently delete everything</strong> created during your connected time — including all shared photos, memories, messages, voice notes, snaps, and location history.
+              </p>
+
+              <form onSubmit={handleDisconnectPartner} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-1.5">
+                    Brief Description / Reason <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    rows={3}
+                    placeholder="Enter a brief description explaining why you want to break the connection..."
+                    value={disconnectReason}
+                    onChange={(e) => setDisconnectReason(e.target.value)}
+                    required
+                    className="w-full p-3 rounded-2xl border border-gray-300 text-sm text-gray-800 focus:ring-2 focus:ring-red-400 focus:outline-none bg-gray-50/50"
+                  />
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-red-50 border border-red-200">
+                  <label className="flex items-start gap-2.5 cursor-pointer text-xs font-semibold text-red-800">
+                    <input
+                      type="checkbox"
+                      checked={confirmDisconnect}
+                      onChange={(e) => setConfirmDisconnect(e.target.checked)}
+                      className="mt-0.5 w-4 h-4 text-red-600 rounded border-gray-300 focus:ring-red-500 shrink-0"
+                    />
+                    <span>
+                      I understand that this action is permanent, will send a report to admin, and will delete all shared data between both partners forever.
+                    </span>
+                  </label>
+                </div>
+
+                {disconnectMsg && (
+                  <p className="text-xs font-semibold text-red-600 bg-red-50 p-2.5 rounded-xl border border-red-100">
+                    {disconnectMsg}
+                  </p>
+                )}
+
+                <div className="flex items-center justify-end gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowDisconnectModal(false)}
+                    className="px-5 py-2.5 rounded-full border border-gray-200 text-gray-600 text-sm font-semibold hover:bg-gray-50 transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isDisconnecting || !confirmDisconnect || !disconnectReason.trim()}
+                    className="px-5 py-2.5 rounded-full bg-red-600 text-white text-sm font-semibold hover:bg-red-700 transition disabled:opacity-50 shadow-md flex items-center gap-2"
+                  >
+                    {isDisconnecting ? 'Breaking Connection...' : 'Confirm & Delete Everything'}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }
