@@ -545,4 +545,93 @@ router.post('/link-partner', protect, linkPartnerRules, validate, async (req, re
   }
 });
 
+// @route  POST /api/auth/login-with-code
+// @access Public
+router.post('/login-with-code', loginLimiter, async (req, res) => {
+  try {
+    const { code, name } = req.body;
+    if (!code) {
+      return res.status(400).json({ message: 'Partner invite code is required' });
+    }
+
+    const normalizedCode = normalizeInviteCode(code);
+    const now = new Date();
+    const invite = await PartnerInvite.findOne({ code: normalizedCode })
+      .populate('inviterId', 'name email partnerId relationshipStartDate');
+
+    if (!invite || invite.status !== 'pending') {
+      return res.status(404).json({ message: inviteUnavailableMessage });
+    }
+
+    if (invite.expiresAt <= now) {
+      await PartnerInvite.updateOne({ _id: invite._id }, { $set: { status: 'expired' } });
+      return res.status(410).json({ message: inviteUnavailableMessage });
+    }
+
+    const inviter = invite.inviterId;
+    if (!inviter || inviter.partnerId) {
+      return res.status(409).json({ message: 'This invite is no longer available' });
+    }
+
+    // Create new partner user without email
+    const partnerName = (name && name.trim()) ? name.trim() : 'Partner';
+    const newUser = await User.create({
+      name: partnerName,
+      email: null,
+      partnerId: inviter._id,
+      relationshipStartDate: inviter.relationshipStartDate || null,
+    });
+
+    // Mark invite as accepted
+    await PartnerInvite.updateOne(
+      { _id: invite._id },
+      { $set: { status: 'accepted', acceptedBy: newUser._id, acceptedAt: now } }
+    );
+
+    // Link inviter to new user
+    await User.findByIdAndUpdate(inviter._id, {
+      partnerId: newUser._id,
+      ...(inviter.relationshipStartDate ? {} : { relationshipStartDate: newUser.relationshipStartDate }),
+    });
+
+    // Seed welcome notification
+    await seedWelcomeNotification(newUser._id);
+
+    // Send partner_linked notifications to both
+    await Promise.all([
+      createNotification(newUser._id, {
+        title: 'Partner connected! 💑',
+        message: `You are now linked with ${inviter.name || 'your partner'}. You can now share memories and messages!`,
+        type: 'partner_linked'
+      }),
+      createNotification(inviter._id, {
+        title: 'Partner connected! 💑',
+        message: `You are now linked with ${newUser.name || 'your partner'}. You can now share memories and messages!`,
+        type: 'partner_linked'
+      })
+    ]);
+
+    // Generate tokens
+    const accessToken  = generateAccessToken(newUser._id);
+    const refreshToken = generateRefreshToken();
+
+    const hashed = hashToken(refreshToken);
+    await User.findByIdAndUpdate(newUser._id, {
+      refreshTokens: [hashed]
+    });
+
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+    });
+
+    res.status(201).json(serializeUser(newUser, accessToken));
+  } catch (err) {
+    console.error('Login with code error:', err);
+    res.status(500).json({ message: err.message || 'Server error' });
+  }
+});
+
 module.exports = router;

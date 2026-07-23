@@ -3,6 +3,7 @@ const router = express.Router();
 const multer = require('multer');
 const cloudinary = require('cloudinary').v2;
 const { Readable } = require('stream');
+const bcrypt = require('bcryptjs');
 const { protect } = require('../middleware/authMiddleware');
 const { uploadLimiter } = require('../middleware/rateLimiters');
 const User = require('../models/User');
@@ -70,6 +71,48 @@ router.put('/profile', async (req, res) => {
     res.json({ message: 'Profile updated', name: updated.name });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// PUT /api/settings/email — add or update email (and optional password)
+router.put('/email', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !email.trim()) return res.status(400).json({ error: 'Email cannot be empty' });
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(normalizedEmail)) {
+      return res.status(400).json({ error: 'Please enter a valid email address' });
+    }
+
+    // Check if another user already uses this email
+    const existingUser = await User.findOne({
+      email: normalizedEmail,
+      _id: { $ne: req.user._id }
+    });
+    if (existingUser) {
+      return res.status(400).json({ error: 'An account with that email already exists' });
+    }
+
+    const updates = { email: normalizedEmail };
+    if (password && password.trim()) {
+      if (password.trim().length < 6) {
+        return res.status(400).json({ error: 'Password must be at least 6 characters' });
+      }
+      updates.password = await bcrypt.hash(password.trim(), 12);
+    }
+
+    const updated = await User.findByIdAndUpdate(
+      req.user._id,
+      { $set: updates },
+      { new: true, select: 'name email avatarUrl partnerId role relationshipStartDate' }
+    );
+
+    res.json({ message: 'Email updated successfully', email: updated.email });
+  } catch (err) {
+    console.error('Update email error:', err);
+    res.status(500).json({ error: err.message || 'Failed to update email' });
   }
 });
 

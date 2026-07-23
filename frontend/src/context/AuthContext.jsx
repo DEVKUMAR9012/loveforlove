@@ -218,6 +218,24 @@ export function AuthProvider({ children }) {
     return data;
   };
 
+  const loginWithPartnerCode = async (code, name) => {
+    const normalizedCode = normalizeInviteCode(code);
+    const res = await fetch(`${API}/api/auth/login-with-code`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: normalizedCode, name }),
+      credentials: 'include',
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || 'Login with partner code failed');
+
+    localStorage.setItem('token', data.token);
+    sessionStorage.setItem('lfl_just_logged_in', '1');
+    setUser(serializeAuthUser(data));
+    scheduleRefresh();
+    return data;
+  };
+
   // ── Logout ─────────────────────────────────────────────────────────────
   const logout = async () => {
     clearTimeout(refreshTimer.current);
@@ -246,6 +264,10 @@ export function AuthProvider({ children }) {
     setUser(prev => ({ ...prev, name }));
   };
 
+  const updateEmail = (email) => {
+    setUser(prev => ({ ...prev, email }));
+  };
+
   return (
     <AuthContext.Provider value={{
       user,
@@ -256,10 +278,12 @@ export function AuthProvider({ children }) {
       updateRelationshipDate,
       updateAvatarUrl,
       updateName,
+      updateEmail,
       signInWithSocial,
       createPartnerInvite,
       previewPartnerInvite,
       acceptPartnerInvite,
+      loginWithPartnerCode,
       backendUrl: API
     }}>
       {children}

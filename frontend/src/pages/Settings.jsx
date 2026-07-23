@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { HiOutlineCamera, HiOutlinePencil, HiOutlineCheck, HiOutlineX } from 'react-icons/hi';
 
 function Settings() {
-  const { user, backendUrl, updateRelationshipDate, updateAvatarUrl, updateName } = useAuth();
+  const { user, backendUrl, updateRelationshipDate, updateAvatarUrl, updateName, updateEmail } = useAuth();
 
   // ── Relationship date ──
   const [date, setDate] = useState(() =>
@@ -24,6 +24,13 @@ function Settings() {
   const [nameValue, setNameValue] = useState(user?.name || '');
   const [savingName, setSavingName] = useState(false);
   const [nameMsg, setNameMsg] = useState('');
+
+  // ── Email editing / adding ──
+  const [editingEmail, setEditingEmail] = useState(false);
+  const [emailValue, setEmailValue] = useState(user?.email || '');
+  const [passwordValue, setPasswordValue] = useState('');
+  const [savingEmail, setSavingEmail] = useState(false);
+  const [emailMsg, setEmailMsg] = useState('');
 
   const handleSaveDate = async (e) => {
     e.preventDefault();
@@ -104,6 +111,36 @@ function Settings() {
     }
   };
 
+  const handleSaveEmail = async (e) => {
+    if (e) e.preventDefault();
+    if (!emailValue.trim()) return;
+    setSavingEmail(true);
+    setEmailMsg('');
+    try {
+      const res = await fetch(`${backendUrl}/api/settings/email`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: JSON.stringify({
+          email: emailValue.trim(),
+          password: passwordValue.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to update email');
+      updateEmail(data.email);
+      setEmailMsg('Email saved successfully! ✉️');
+      setEditingEmail(false);
+      setPasswordValue('');
+    } catch (err) {
+      setEmailMsg(err.message || 'Error updating email.');
+    } finally {
+      setSavingEmail(false);
+    }
+  };
+
   const handleExport = () => {
     alert('This feature will compile all your memories and messages into a beautiful PDF in the future!');
   };
@@ -179,7 +216,7 @@ function Settings() {
           <div className="flex-1 min-w-0">
             {/* Name field */}
             {editingName ? (
-              <div className="flex items-center gap-2 mb-1">
+              <div className="flex items-center gap-2 mb-2">
                 <input
                   autoFocus
                   value={nameValue}
@@ -203,7 +240,7 @@ function Settings() {
                 </button>
               </div>
             ) : (
-              <div className="flex items-center gap-2 mb-1">
+              <div className="flex items-center gap-2 mb-2">
                 <p className="text-xl font-bold text-gray-800">{user?.name}</p>
                 <button
                   onClick={() => setEditingName(true)}
@@ -214,16 +251,82 @@ function Settings() {
                 </button>
               </div>
             )}
-            <p className="text-sm text-gray-400">{user?.email}</p>
-            {(nameMsg || avatarMsg) && (
-              <p className={`text-xs mt-2 font-medium ${(nameMsg || avatarMsg).startsWith('Error') || (nameMsg || avatarMsg).startsWith('Failed') ? 'text-red-500' : 'text-emerald-600'}`}>
-                {nameMsg || avatarMsg}
+
+            {/* Email field */}
+            {editingEmail ? (
+              <form onSubmit={handleSaveEmail} className="flex flex-col gap-2 mt-2">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="email"
+                    placeholder="Enter email address"
+                    value={emailValue}
+                    onChange={(e) => setEmailValue(e.target.value)}
+                    required
+                    className="flex-1 px-3 py-1.5 rounded-xl border border-[#ee2a7b]/40 focus:outline-none focus:ring-2 focus:ring-[#ee2a7b]/30 text-gray-800 text-sm bg-white/80"
+                  />
+                  <button
+                    type="submit"
+                    disabled={savingEmail}
+                    className="w-8 h-8 rounded-full bg-[#ee2a7b] flex items-center justify-center text-white hover:bg-[#c51e67] transition disabled:opacity-50"
+                    title="Save email"
+                  >
+                    <HiOutlineCheck />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setEditingEmail(false); setEmailValue(user?.email || ''); setPasswordValue(''); }}
+                    className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200 transition"
+                    title="Cancel"
+                  >
+                    <HiOutlineX />
+                  </button>
+                </div>
+                <input
+                  type="password"
+                  placeholder="Set account password (optional)"
+                  value={passwordValue}
+                  onChange={(e) => setPasswordValue(e.target.value)}
+                  className="w-full px-3 py-1.5 rounded-xl border border-gray-200 text-gray-800 text-xs bg-white/80 focus:outline-none"
+                />
+              </form>
+            ) : (
+              <div className="flex items-center gap-2">
+                {user?.email ? (
+                  <>
+                    <p className="text-sm text-gray-500">{user.email}</p>
+                    <button
+                      onClick={() => { setEditingEmail(true); setEmailValue(user.email); }}
+                      className="text-gray-400 hover:text-[#ee2a7b] transition text-xs"
+                      title="Edit email"
+                    >
+                      <HiOutlinePencil />
+                    </button>
+                  </>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">
+                      No email linked
+                    </span>
+                    <button
+                      onClick={() => setEditingEmail(true)}
+                      className="px-3 py-1 bg-[#ee2a7b] text-white text-xs font-semibold rounded-full hover:bg-[#c51e67] transition shadow-xs"
+                    >
+                      + Add Email
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {(nameMsg || avatarMsg || emailMsg) && (
+              <p className={`text-xs mt-2 font-medium ${(nameMsg || avatarMsg || emailMsg).includes('Error') || (nameMsg || avatarMsg || emailMsg).includes('Failed') ? 'text-red-500' : 'text-emerald-600'}`}>
+                {nameMsg || avatarMsg || emailMsg}
               </p>
             )}
           </div>
         </div>
 
-        <p className="text-xs text-gray-400">Click on the photo to change it. Click the pencil icon to edit your name.</p>
+        <p className="text-xs text-gray-400">Click on the photo to change it. Click the pencil icon to edit your profile details.</p>
       </div>
 
       {/* ── Relationship Details ──────────────────────────────────────── */}

@@ -3,19 +3,22 @@ import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { FcGoogle } from 'react-icons/fc';
-import { FaInstagram, FaFacebook } from 'react-icons/fa';
+import { FaInstagram, FaFacebook, FaKey } from 'react-icons/fa';
 import { AnimatedMainLogo } from '../components/MainLogo';
 
 const normalizeInviteCode = (value) => String(value || '').toUpperCase().replace(/[\s-]/g, '');
-
 
 function Login() {
   const [searchParams] = useSearchParams();
   const [error, setError] = useState('');
   const [loading, setLoading] = useState('');
   const [showLoginOptions, setShowLoginOptions] = useState(false);
+  const [showCodeInput, setShowCodeInput] = useState(false);
+  const [partnerCode, setPartnerCode] = useState('');
+  const [partnerNameInput, setPartnerNameInput] = useState('');
+
   const navigate = useNavigate();
-  const { user, signInWithSocial, acceptPartnerInvite } = useAuth();
+  const { user, signInWithSocial, acceptPartnerInvite, loginWithPartnerCode } = useAuth();
 
   useEffect(() => {
     if (user) navigate('/');
@@ -33,6 +36,24 @@ function Login() {
         await acceptPartnerInvite(inviteCode);
         sessionStorage.removeItem('pendingInviteCode');
       }
+      navigate('/');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading('');
+    }
+  };
+
+  const handleCodeLogin = async (e) => {
+    e.preventDefault();
+    if (!partnerCode.trim()) {
+      setError('Please enter a partner invite code');
+      return;
+    }
+    setError('');
+    setLoading('code');
+    try {
+      await loginWithPartnerCode(partnerCode.trim(), partnerNameInput.trim());
       navigate('/');
     } catch (err) {
       setError(err.message);
@@ -63,10 +84,8 @@ function Login() {
     },
   ];
 
-
   return (
     <div className="min-h-screen bg-white relative overflow-hidden font-sans">
-
       {/* Navbar */}
       <nav className="flex items-center justify-between px-8 py-6 max-w-7xl mx-auto w-full z-10 relative">
         <div className="flex items-center gap-2">
@@ -77,7 +96,7 @@ function Login() {
           <Link to="/" className="text-gray-600 hover:text-gray-900 font-medium">Home</Link>
           <Link to="/about" className="text-gray-600 hover:text-gray-900 font-medium">About</Link>
           <button
-            onClick={() => setShowLoginOptions(true)}
+            onClick={() => { setShowLoginOptions(true); setShowCodeInput(false); setError(''); }}
             className="px-6 py-2 rounded-full text-white font-medium bg-gradient-to-r from-[#ee2a7b] to-[#f9ce34] hover:opacity-90 transition-opacity"
           >
             Sign up
@@ -114,7 +133,7 @@ function Login() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 1.9 }}
-            onClick={() => setShowLoginOptions(true)}
+            onClick={() => { setShowLoginOptions(true); setShowCodeInput(false); setError(''); }}
             className="px-10 py-4 rounded-full text-white font-bold text-xl shadow-lg bg-gradient-to-r from-[#ee2a7b] to-[#f9ce34] hover:scale-105 transition-transform"
           >
             Start Your Journey
@@ -138,43 +157,113 @@ function Login() {
               className="bg-white p-8 rounded-3xl shadow-2xl w-full max-w-sm relative border border-gray-100"
             >
               <button
-                onClick={() => setShowLoginOptions(false)}
+                onClick={() => { setShowLoginOptions(false); setShowCodeInput(false); setError(''); }}
                 className="absolute top-4 right-5 text-gray-400 hover:text-gray-600 text-2xl font-bold"
               >
                 &times;
               </button>
 
-              <div className="text-center mb-8">
-                <AnimatedMainLogo className="w-12 h-12 mx-auto mb-4" />
-                <h2 className="text-2xl font-bold text-[#8b1c31]">Sign in</h2>
-                <p className="text-gray-500 text-sm mt-1">to your safe space</p>
+              <div className="text-center mb-6">
+                <AnimatedMainLogo className="w-12 h-12 mx-auto mb-3" />
+                <h2 className="text-2xl font-bold text-[#8b1c31]">
+                  {showCodeInput ? 'Join with Code' : 'Sign in'}
+                </h2>
+                <p className="text-gray-500 text-sm mt-1">
+                  {showCodeInput ? 'Enter your partner invite code' : 'to your safe space'}
+                </p>
               </div>
 
-              <div className="flex flex-col gap-3">
-                {socialButtons.map((btn) => (
+              {!showCodeInput ? (
+                <div className="flex flex-col gap-3">
+                  {socialButtons.map((btn) => (
+                    <button
+                      key={btn.id}
+                      disabled={!!loading}
+                      onClick={() => handleSocialAuth(btn.id)}
+                      className={`flex items-center gap-3 w-full px-5 py-3.5 rounded-2xl font-semibold text-sm transition-all shadow-sm hover:shadow-md ${btn.className}`}
+                      style={btn.style}
+                    >
+                      {loading === btn.id ? (
+                        <>
+                          <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin opacity-60" />
+                          <span className="opacity-70">Signing in…</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-white/20">
+                            {btn.icon}
+                          </span>
+                          <span>{btn.label}</span>
+                        </>
+                      )}
+                    </button>
+                  ))}
+
+                  {/* Partner Code Login Option */}
                   <button
-                    key={btn.id}
                     disabled={!!loading}
-                    onClick={() => handleSocialAuth(btn.id)}
-                    className={`flex items-center gap-3 w-full px-5 py-3.5 rounded-2xl font-semibold text-sm transition-all shadow-sm hover:shadow-md ${btn.className}`}
-                    style={btn.style}
+                    onClick={() => { setShowCodeInput(true); setError(''); }}
+                    className="flex items-center gap-3 w-full px-5 py-3.5 rounded-2xl font-semibold text-sm transition-all shadow-sm hover:shadow-md bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:opacity-90"
                   >
-                    {loading === btn.id ? (
+                    <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-white/20">
+                      <FaKey className="text-lg text-white" />
+                    </span>
+                    <span>Continue with Partner Code</span>
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleCodeLogin} className="flex flex-col gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">
+                      Partner Invite Code
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. ABC12345"
+                      value={partnerCode}
+                      onChange={(e) => setPartnerCode(e.target.value.toUpperCase())}
+                      className="w-full px-4 py-3 rounded-2xl border border-gray-200 text-gray-800 font-mono tracking-widest text-center text-lg uppercase focus:outline-none focus:ring-2 focus:ring-[#ee2a7b]/40"
+                      maxLength={12}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">
+                      Your Display Name
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Your Name"
+                      value={partnerNameInput}
+                      onChange={(e) => setPartnerNameInput(e.target.value)}
+                      className="w-full px-4 py-2.5 rounded-2xl border border-gray-200 text-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-[#ee2a7b]/40"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={loading === 'code'}
+                    className="w-full py-3.5 rounded-2xl font-semibold text-sm transition-all shadow-md text-white bg-gradient-to-r from-[#ee2a7b] to-[#f9ce34] hover:opacity-95 mt-2 flex items-center justify-center gap-2"
+                  >
+                    {loading === 'code' ? (
                       <>
-                        <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin opacity-60" />
-                        <span className="opacity-70">Signing in…</span>
+                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        <span>Connecting…</span>
                       </>
                     ) : (
-                      <>
-                        <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-white/20">
-                          {btn.icon}
-                        </span>
-                        <span>{btn.label}</span>
-                      </>
+                      <span>Join Space</span>
                     )}
                   </button>
-                ))}
-              </div>
+
+                  <button
+                    type="button"
+                    onClick={() => { setShowCodeInput(false); setError(''); }}
+                    className="text-xs text-gray-500 hover:text-gray-800 font-medium text-center mt-2"
+                  >
+                    ← Back to sign in options
+                  </button>
+                </form>
+              )}
 
               {error && (
                 <p className="text-red-500 text-sm text-center bg-red-50 rounded-xl px-3 py-2 mt-4">
