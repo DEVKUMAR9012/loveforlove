@@ -4,16 +4,13 @@ import { useAuth } from '../../context/AuthContext';
 import { Navigate } from 'react-router-dom';
 import WelcomeBanner from '../WelcomeBanner';
 import NotificationBell from './NotificationBell';
+import { RibbonLogoLoader } from '../RibbonLogoLoader';
 
 function Layout() {
   const { user, loading } = useAuth();
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blush-50 via-white to-sky-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blush-500"></div>
-      </div>
-    );
+    return <RibbonLogoLoader subText="Opening your private world..." />;
   }
 
   if (!user) {

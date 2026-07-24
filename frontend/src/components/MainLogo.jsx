@@ -68,8 +68,8 @@ const drawPath = {
     pathLength: 1,
     opacity: 1,
     transition: {
-      pathLength: { duration: 0.9, delay: i * 0.25, ease: 'easeInOut' },
-      opacity:    { duration: 0.3, delay: i * 0.25 },
+      pathLength: { duration: 1.4, delay: i * 0.28, ease: [0.65, 0, 0.35, 1] },
+      opacity:    { duration: 0.35, delay: i * 0.28 },
     },
   }),
 };
@@ -77,8 +77,8 @@ const drawPath = {
 const gloss = {
   hidden:  { opacity: 0 },
   visible: (i = 0) => ({
-    opacity: 0.35,
-    transition: { duration: 0.5, delay: 1 + i * 0.1 },
+    opacity: 0.4,
+    transition: { duration: 0.6, delay: 1.2 + i * 0.15 },
   }),
 };
 
@@ -351,4 +351,5 @@ export function AnimatedMainLogo({ className = 'w-16 h-16' }) {
   );
 }
 
+export { RibbonLogo, RibbonLogoLoader } from './RibbonLogoLoader';
 export default MainLogo;
