@@ -63,6 +63,11 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: '',
   },
+  // If true, user manually uploaded a custom avatar — social login won't overwrite it
+  hasCustomAvatar: {
+    type: Boolean,
+    default: false,
+  },
   // Firebase UID for social login users — used to reliably find returning users
   firebaseUid: {
     type: String,

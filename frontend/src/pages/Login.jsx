@@ -29,7 +29,6 @@ function Login() {
   const handleSocialClick = async (provider) => {
     setError('');
 
-    // All providers now use real OAuth popup
     setLoading(provider);
     const inviteCode = normalizeInviteCode(
       searchParams.get('code') || sessionStorage.getItem('pendingInviteCode') || ''
@@ -42,9 +41,12 @@ function Login() {
       }
       navigate('/');
     } catch (err) {
-      if (err.message === 'PROVIDER_UNCONFIGURED') {
+      if (err.message === 'PROVIDER_UNCONFIGURED' && provider !== 'google') {
+        // Non-Google providers: show manual ID input form as fallback
         setActiveSocialProvider(provider);
         setSocialUsername('');
+      } else if (err.message === 'PROVIDER_UNCONFIGURED' && provider === 'google') {
+        setError('Google Sign-In is not enabled. Please enable it in Firebase Console → Authentication → Sign-in method.');
       } else {
         setError(err.message);
       }

@@ -241,10 +241,11 @@ router.post(
 
         await seedWelcomeNotification(user._id);
       } else {
-        // Returning user — always update name, avatar, and firebaseUid
+        // Returning user — update name and firebaseUid always.
+        // Only update avatarUrl from social provider if user has NOT set a custom avatar.
         const updates = {};
-        if (name && name.trim())  updates.name      = name.trim();
-        if (picture)              updates.avatarUrl  = picture;
+        if (name && name.trim())  updates.name = name.trim();
+        if (picture && !user.hasCustomAvatar) updates.avatarUrl = picture;
         if (firebaseUid && !user.firebaseUid) updates.firebaseUid = firebaseUid;
         if (Object.keys(updates).length > 0) {
           await User.findByIdAndUpdate(user._id, updates);

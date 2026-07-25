@@ -185,15 +185,20 @@ export function AuthProvider({ children }) {
     } catch (err) {
       console.error('Social login error:', err);
 
+      // Provider not enabled in Firebase Console
       const unconfiguredCodes = [
         'auth/operation-not-allowed',
         'auth/configuration-not-found',
         'auth/invalid-provider-id',
-        'auth/unauthorized-domain'
       ];
 
       if (unconfiguredCodes.includes(err.code) || err.message?.includes('operation-not-allowed')) {
         throw new Error('PROVIDER_UNCONFIGURED');
+      }
+
+      // Domain not authorized in Firebase Console
+      if (err.code === 'auth/unauthorized-domain') {
+        throw new Error('This domain is not authorized for Google Sign-In. Please add it in Firebase Console → Authentication → Settings → Authorized Domains.');
       }
 
       if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') {

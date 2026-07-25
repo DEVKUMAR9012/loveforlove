@@ -61,7 +61,7 @@ router.post('/avatar', uploadLimiter, upload.single('avatar'), async (req, res) 
       ]
     });
 
-    await User.findByIdAndUpdate(req.user._id, { avatarUrl: result.secure_url });
+    await User.findByIdAndUpdate(req.user._id, { avatarUrl: result.secure_url, hasCustomAvatar: true });
     const user = { avatarUrl: result.secure_url };
 
     res.json({ message: 'Avatar updated successfully', avatarUrl: user.avatarUrl });
