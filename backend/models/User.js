@@ -63,6 +63,12 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: '',
   },
+  // Firebase UID for social login users — used to reliably find returning users
+  firebaseUid: {
+    type: String,
+    default: null,
+    sparse: true,
+  },
   // Partner linking — set this to the other person's _id to share memories
   partnerId: {
     type: mongoose.Schema.Types.ObjectId,

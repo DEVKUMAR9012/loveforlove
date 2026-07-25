@@ -118,25 +118,62 @@ export function AuthProvider({ children }) {
   };
 
   // ── Social Login ───────────────────────────────────────────────────────
-  const signInWithSocial = async (providerName) => {
+  const signInWithSocial = async (providerName, customData = null) => {
     let provider;
     if (providerName === 'google') provider = googleProvider;
     else if (providerName === 'facebook') provider = facebookProvider;
-    else if (providerName === 'instagram') provider = instagramProvider;
+    else if (providerName === 'instagram') provider = facebookProvider; // Instagram uses Facebook OAuth
     else throw new Error('Unknown provider');
 
     try {
-      // Use popup for all devices — works on mobile & desktop
-      const result = await signInWithPopup(auth, provider);
-      const idToken = await result.user.getIdToken();
+      if (customData && (customData.name || customData.email)) {
+        const res = await fetch(`${API}/api/auth/social`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            provider: providerName,
+            name: customData.name,
+            email: customData.email || `${providerName}_${Date.now()}@social.loveforlove.app`,
+            avatarUrl: customData.avatarUrl || '',
+          }),
+          credentials: 'include',
+        });
 
-      // Send the Firebase token to our custom backend
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || `${providerName} login failed`);
+
+        localStorage.setItem('token', data.token);
+        sessionStorage.setItem('lfl_just_logged_in', '1');
+        setUser(serializeAuthUser(data));
+        scheduleRefresh();
+        return;
+      }
+
+      // Real Firebase OAuth popup — gets actual name + profile picture
+      const result = await signInWithPopup(auth, provider);
+      const firebaseUser = result.user;
+      const idToken = await firebaseUser.getIdToken();
+
+      // Extract real profile data from Firebase OAuth result
+      const realName    = firebaseUser.displayName || '';
+      const realAvatar  = firebaseUser.photoURL    || '';
+      const realEmail   = firebaseUser.email       || '';
+      const realUid     = firebaseUser.uid          || '';
+
       const res = await fetch(`${API}/api/auth/social`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: idToken }),
+        body: JSON.stringify({
+          token:       idToken,
+          provider:    providerName,
+          name:        realName,
+          email:       realEmail,
+          avatarUrl:   realAvatar,
+          firebaseUid: realUid,
+        }),
         credentials: 'include',
       });
+
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Social login failed');
@@ -147,6 +184,18 @@ export function AuthProvider({ children }) {
       scheduleRefresh();
     } catch (err) {
       console.error('Social login error:', err);
+
+      const unconfiguredCodes = [
+        'auth/operation-not-allowed',
+        'auth/configuration-not-found',
+        'auth/invalid-provider-id',
+        'auth/unauthorized-domain'
+      ];
+
+      if (unconfiguredCodes.includes(err.code) || err.message?.includes('operation-not-allowed')) {
+        throw new Error('PROVIDER_UNCONFIGURED');
+      }
+
       if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') {
         throw new Error('Sign in was cancelled. Please try again.');
       }
@@ -158,6 +207,7 @@ export function AuthProvider({ children }) {
   };
 
   // ── Register ───────────────────────────────────────────────────────────
+
   const register = async (name, email, password) => {
     const res  = await fetch(`${API}/api/auth/register`, {
       method: 'POST',

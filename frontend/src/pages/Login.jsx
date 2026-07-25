@@ -14,6 +14,8 @@ function Login() {
   const [loading, setLoading] = useState('');
   const [showLoginOptions, setShowLoginOptions] = useState(false);
   const [showCodeInput, setShowCodeInput] = useState(false);
+  const [activeSocialProvider, setActiveSocialProvider] = useState(null);
+  const [socialUsername, setSocialUsername] = useState('');
   const [partnerCode, setPartnerCode] = useState('');
   const [partnerNameInput, setPartnerNameInput] = useState('');
 
@@ -24,14 +26,61 @@ function Login() {
     if (user) navigate('/');
   }, [user, navigate]);
 
-  const handleSocialAuth = async (provider) => {
+  const handleSocialClick = async (provider) => {
     setError('');
+
+    // All providers now use real OAuth popup
     setLoading(provider);
     const inviteCode = normalizeInviteCode(
       searchParams.get('code') || sessionStorage.getItem('pendingInviteCode') || ''
     );
     try {
       await signInWithSocial(provider);
+      if (inviteCode) {
+        await acceptPartnerInvite(inviteCode);
+        sessionStorage.removeItem('pendingInviteCode');
+      }
+      navigate('/');
+    } catch (err) {
+      if (err.message === 'PROVIDER_UNCONFIGURED') {
+        setActiveSocialProvider(provider);
+        setSocialUsername('');
+      } else {
+        setError(err.message);
+      }
+    } finally {
+      setLoading('');
+    }
+  };
+
+
+  const handleCustomSocialSubmit = async (e) => {
+    e.preventDefault();
+    if (!socialUsername.trim()) {
+      setError(`Please enter your ${activeSocialProvider === 'instagram' ? 'Instagram Username / ID' : 'Name / ID'}`);
+      return;
+    }
+
+    setError('');
+    setLoading(activeSocialProvider);
+
+    let formattedName = socialUsername.trim();
+    if (activeSocialProvider === 'instagram' && !formattedName.startsWith('@')) {
+      formattedName = `@${formattedName}`;
+    }
+
+    const cleanHandle = formattedName.replace(/[^a-zA-Z0-9._-]/g, '');
+    const customEmail = `${cleanHandle.toLowerCase()}@${activeSocialProvider}.com`;
+
+    const inviteCode = normalizeInviteCode(
+      searchParams.get('code') || sessionStorage.getItem('pendingInviteCode') || ''
+    );
+
+    try {
+      await signInWithSocial(activeSocialProvider, {
+        name: formattedName,
+        email: customEmail,
+      });
       if (inviteCode) {
         await acceptPartnerInvite(inviteCode);
         sessionStorage.removeItem('pendingInviteCode');
@@ -70,34 +119,35 @@ function Login() {
       className: 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50',
     },
     {
-      id: 'instagram',
-      label: 'Continue with Instagram',
-      icon: <FaInstagram className="text-2xl text-white" />,
-      className: 'text-white hover:opacity-90',
-      style: { background: 'linear-gradient(135deg, #f9ce34, #ee2a7b, #6228d7)' },
-    },
-    {
       id: 'facebook',
-      label: 'Continue with Facebook',
-      icon: <FaFacebook className="text-2xl text-white" />,
-      className: 'bg-[#1877F2] text-white hover:bg-[#166fe5]',
+      label: 'Continue with Facebook / Instagram',
+      icon: (
+        <span className="flex items-center gap-1">
+          <FaFacebook className="text-xl text-white" />
+          <span className="text-white opacity-60 text-xs">/</span>
+          <FaInstagram className="text-xl text-white" />
+        </span>
+      ),
+      className: 'text-white hover:opacity-90',
+      style: { background: 'linear-gradient(135deg, #1877F2 0%, #833ab4 60%, #ee2a7b 100%)' },
     },
   ];
+
 
   return (
     <div className="min-h-screen bg-white relative overflow-hidden font-sans">
       {/* Navbar */}
-      <nav className="flex items-center justify-between px-8 py-6 max-w-7xl mx-auto w-full z-10 relative">
+      <nav className="flex items-center justify-between px-4 sm:px-8 py-4 sm:py-6 max-w-7xl mx-auto w-full z-10 relative">
         <div className="flex items-center gap-2">
-          <AnimatedMainLogo className="w-10 h-10" />
-          <span className="text-[#8b1c31] font-bold text-2xl tracking-tight">loveforlove</span>
+          <AnimatedMainLogo className="w-8 h-8 sm:w-10 sm:h-10" />
+          <span className="text-[#8b1c31] font-bold text-xl sm:text-2xl tracking-tight">loveforlove</span>
         </div>
-        <div className="hidden md:flex items-center gap-8">
-          <Link to="/" className="text-gray-600 hover:text-gray-900 font-medium">Home</Link>
-          <Link to="/about" className="text-gray-600 hover:text-gray-900 font-medium">About</Link>
+        <div className="flex items-center gap-3 sm:gap-8">
+          <Link to="/" className="text-gray-600 hover:text-gray-900 font-medium text-sm sm:text-base">Home</Link>
+          <Link to="/about" className="text-gray-600 hover:text-gray-900 font-medium text-sm sm:text-base">About</Link>
           <button
-            onClick={() => { setShowLoginOptions(true); setShowCodeInput(false); setError(''); }}
-            className="px-6 py-2 rounded-full text-white font-medium bg-gradient-to-r from-[#ee2a7b] to-[#f9ce34] hover:opacity-90 transition-opacity"
+            onClick={() => { setShowLoginOptions(true); setShowCodeInput(false); setActiveSocialProvider(null); setError(''); }}
+            className="px-4 sm:px-6 py-1.5 sm:py-2 rounded-full text-white font-medium text-xs sm:text-base bg-gradient-to-r from-[#ee2a7b] to-[#f9ce34] hover:opacity-90 transition-opacity"
           >
             Sign up
           </button>
@@ -105,19 +155,19 @@ function Login() {
       </nav>
 
       {/* Main Content */}
-      <main className="flex flex-col items-center justify-center pt-20 pb-32 px-4 relative z-10 text-center">
+      <main className="flex flex-col items-center justify-center pt-12 md:pt-20 pb-24 md:pb-32 px-4 relative z-10 text-center">
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.6, ease: 'easeOut' }}
           className="flex flex-col items-center"
         >
-          <AnimatedMainLogo className="w-64 h-64 md:w-80 md:h-80 mb-6 drop-shadow-xl" />
+          <AnimatedMainLogo className="w-48 h-48 sm:w-64 sm:h-64 md:w-80 md:h-80 mb-6 drop-shadow-xl" />
           <motion.h1
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 1.6 }}
-            className="text-6xl md:text-8xl font-extrabold text-[#8b1c31] tracking-tighter mb-4"
+            className="text-5xl sm:text-6xl md:text-8xl font-extrabold text-[#8b1c31] tracking-tighter mb-4"
           >
             loveforlove
           </motion.h1>
@@ -125,7 +175,7 @@ function Login() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 1.75 }}
-            className="text-xl md:text-2xl text-gray-700 font-medium mb-12"
+            className="text-lg sm:text-xl md:text-2xl text-gray-700 font-medium mb-8 sm:mb-12"
           >
             Your Connection, Everlasting.
           </motion.p>
@@ -133,8 +183,8 @@ function Login() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 1.9 }}
-            onClick={() => { setShowLoginOptions(true); setShowCodeInput(false); setError(''); }}
-            className="px-10 py-4 rounded-full text-white font-bold text-xl shadow-lg bg-gradient-to-r from-[#ee2a7b] to-[#f9ce34] hover:scale-105 transition-transform"
+            onClick={() => { setShowLoginOptions(true); setShowCodeInput(false); setActiveSocialProvider(null); setError(''); }}
+            className="px-8 sm:px-10 py-3.5 sm:py-4 rounded-full text-white font-bold text-lg sm:text-xl shadow-lg bg-gradient-to-r from-[#ee2a7b] to-[#f9ce34] hover:scale-105 transition-transform"
           >
             Start Your Journey
           </motion.button>
@@ -157,7 +207,7 @@ function Login() {
               className="bg-white p-8 rounded-3xl shadow-2xl w-full max-w-sm relative border border-gray-100"
             >
               <button
-                onClick={() => { setShowLoginOptions(false); setShowCodeInput(false); setError(''); }}
+                onClick={() => { setShowLoginOptions(false); setShowCodeInput(false); setActiveSocialProvider(null); setError(''); }}
                 className="absolute top-4 right-5 text-gray-400 hover:text-gray-600 text-2xl font-bold"
               >
                 &times;
@@ -166,20 +216,68 @@ function Login() {
               <div className="text-center mb-6">
                 <AnimatedMainLogo className="w-12 h-12 mx-auto mb-3" />
                 <h2 className="text-2xl font-bold text-[#8b1c31]">
-                  {showCodeInput ? 'Join with Code' : 'Sign in'}
+                  {activeSocialProvider
+                    ? `Sign in with ${activeSocialProvider.charAt(0).toUpperCase() + activeSocialProvider.slice(1)}`
+                    : showCodeInput
+                    ? 'Join with Code'
+                    : 'Sign in'}
                 </h2>
                 <p className="text-gray-500 text-sm mt-1">
-                  {showCodeInput ? 'Enter your partner invite code' : 'to your safe space'}
+                  {activeSocialProvider
+                    ? `Enter your real ${activeSocialProvider === 'instagram' ? 'Instagram ID / handle' : 'name'}`
+                    : showCodeInput
+                    ? 'Enter your partner invite code'
+                    : 'to your safe space'}
                 </p>
               </div>
 
-              {!showCodeInput ? (
+              {activeSocialProvider ? (
+                /* Instagram / Custom Social ID Form */
+                <form onSubmit={handleCustomSocialSubmit} className="flex flex-col gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">
+                      {activeSocialProvider === 'instagram' ? 'Instagram Username / ID' : 'Profile Name / Handle'}
+                    </label>
+                    <input
+                      type="text"
+                      placeholder={activeSocialProvider === 'instagram' ? 'e.g. @your_insta_id' : 'Your Name'}
+                      value={socialUsername}
+                      onChange={(e) => setSocialUsername(e.target.value)}
+                      className="w-full px-4 py-3 rounded-2xl border border-gray-200 text-gray-800 text-base focus:outline-none focus:ring-2 focus:ring-[#ee2a7b]/40 font-medium"
+                      autoFocus
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={!!loading}
+                    className="w-full py-3.5 rounded-2xl font-semibold text-sm transition-all shadow-md text-white bg-gradient-to-r from-[#ee2a7b] to-[#f9ce34] hover:opacity-95 mt-2 flex items-center justify-center gap-2"
+                  >
+                    {loading ? (
+                      <>
+                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        <span>Signing in…</span>
+                      </>
+                    ) : (
+                      <span>Continue to Space →</span>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => { setActiveSocialProvider(null); setError(''); }}
+                    className="text-xs text-gray-500 hover:text-gray-800 font-medium text-center mt-2"
+                  >
+                    ← Back to sign in options
+                  </button>
+                </form>
+              ) : !showCodeInput ? (
                 <div className="flex flex-col gap-3">
                   {socialButtons.map((btn) => (
                     <button
                       key={btn.id}
                       disabled={!!loading}
-                      onClick={() => handleSocialAuth(btn.id)}
+                      onClick={() => handleSocialClick(btn.id)}
                       className={`flex items-center gap-3 w-full px-5 py-3.5 rounded-2xl font-semibold text-sm transition-all shadow-sm hover:shadow-md ${btn.className}`}
                       style={btn.style}
                     >

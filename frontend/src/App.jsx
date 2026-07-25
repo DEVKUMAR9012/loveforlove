@@ -69,6 +69,9 @@ function App() {
               <Route path="/admin"    element={<Guarded><AdminRoute><AdminDashboard /></AdminRoute></Guarded>} />
               <Route path="/report"   element={<Guarded><ReportPage /></Guarded>} />
             </Route>
+
+            {/* Catch-all Fallback */}
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Router>
       </AuthProvider>

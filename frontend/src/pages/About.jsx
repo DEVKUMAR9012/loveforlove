@@ -403,13 +403,13 @@ const About = () => {
 
       {/* Navbar */}
       <nav className="relative z-10 flex items-center justify-between px-6 md:px-10 py-6 max-w-7xl mx-auto w-full">
-        <Link to="/login" className="flex items-center gap-2">
+        <Link to="/" className="flex items-center gap-2">
           <MainLogo className="w-9 h-9 md:w-10 md:h-10" />
           <span className="font-bold text-xl md:text-2xl tracking-tight" style={{ color: MAROON }}>
             loveforlove
           </span>
         </Link>
-        <Link to="/login" className="text-sm font-medium text-gray-500 hover:text-[#ee2a7b] transition-colors">
+        <Link to="/" className="text-sm font-medium text-gray-500 hover:text-[#ee2a7b] transition-colors">
           Back to home
         </Link>
       </nav>
