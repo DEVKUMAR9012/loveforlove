@@ -32,6 +32,15 @@ function Settings() {
   const [savingEmail, setSavingEmail] = useState(false);
   const [emailMsg, setEmailMsg] = useState('');
 
+  // ── Sync name & email from context whenever user data changes ──
+  useEffect(() => {
+    if (!editingName) setNameValue(user?.name || '');
+  }, [user?.name, editingName]);
+
+  useEffect(() => {
+    if (!editingEmail) setEmailValue(user?.email || '');
+  }, [user?.email, editingEmail]);
+
   // ── Disconnect Partner state ──
   const [showDisconnectModal, setShowDisconnectModal] = useState(false);
   const [disconnectReason, setDisconnectReason] = useState('');
