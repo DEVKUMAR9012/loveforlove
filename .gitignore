@@ -31,3 +31,18 @@ Thumbs.db
 
 # Firebase Admin
 serviceAccountKey.json
+
+# AI Tool Config — internal use only, not for repo
+.vibecheck/
+.claude/
+.cursor/
+.agents/
+.github/copilot-instructions.md
+AGENTS.md
+CLAUDE.md
+architecture_and_pipeline.md
+LIVE_LOCATION_API.md
+LIVE_LOCATION_MOCKUP.html
+LIVE_LOCATION_QUICK_START.md
+LIVE_LOCATION_SETUP.md
+workflows/
