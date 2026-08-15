@@ -12,7 +12,8 @@ import {
   HiOutlineLogout,
   HiOutlineCog,
   HiOutlineShieldCheck,
-  HiOutlineLocationMarker
+  HiOutlineLocationMarker,
+  HiOutlineMail
 } from 'react-icons/hi';
 
 const navItems = [
@@ -22,6 +23,7 @@ const navItems = [
   { label: 'Mood', to: '/mood', icon: HiOutlineHeart },
   { label: 'Snap', to: '/snap', icon: HiOutlineCamera },
   { label: 'Voice', to: '/voice', icon: HiOutlineMicrophone },
+  { label: 'Letters', to: '/letters', icon: HiOutlineMail },
   { label: 'Location', to: '/location', icon: HiOutlineLocationMarker },
   { label: 'Settings', to: '/settings', icon: HiOutlineCog },
 ];

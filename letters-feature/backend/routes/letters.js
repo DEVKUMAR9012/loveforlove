@@ -1,13 +1,13 @@
 const express = require('express');
 const router = express.Router();
 const Letter = require('../models/Letter');
-const { protect } = require('../middleware/authMiddleware');
-const User = require('../models/User');
+const authMiddleware = require('../middleware/auth'); // adjust path to your existing auth middleware
+const User = require('../models/User'); // adjust to your existing User model path
 
 // GET /api/letters - all letters between the logged-in user and their partner
-router.get('/', protect, async (req, res) => {
+router.get('/', authMiddleware, async (req, res) => {
   try {
-    const userId = req.user._id;
+    const userId = req.user.id;
     const currentUser = await User.findById(userId);
 
     if (!currentUser.partnerId) {
@@ -32,7 +32,7 @@ router.get('/', protect, async (req, res) => {
 });
 
 // GET /api/letters/:id - single letter (also marks as read if receiver opens it)
-router.get('/:id', protect, async (req, res) => {
+router.get('/:id', authMiddleware, async (req, res) => {
   try {
     const letter = await Letter.findById(req.params.id)
       .populate('sender', 'name')
@@ -42,7 +42,7 @@ router.get('/:id', protect, async (req, res) => {
       return res.status(404).json({ message: 'Letter not found' });
     }
 
-    const userId = req.user._id.toString();
+    const userId = req.user.id;
     if (
       letter.sender._id.toString() !== userId &&
       letter.receiver._id.toString() !== userId
@@ -65,10 +65,10 @@ router.get('/:id', protect, async (req, res) => {
 });
 
 // POST /api/letters - write and send a new letter
-router.post('/', protect, async (req, res) => {
+router.post('/', authMiddleware, async (req, res) => {
   try {
     const { themeId, title, content, signature } = req.body;
-    const userId = req.user._id;
+    const userId = req.user.id;
     const currentUser = await User.findById(userId);
 
     if (!currentUser.partnerId) {
@@ -92,8 +92,8 @@ router.post('/', protect, async (req, res) => {
     await letter.populate('sender', 'name');
     await letter.populate('receiver', 'name');
 
-    // TODO: emit socket.io event here to notify partner in real-time
-    // e.g. io.to(currentUser.partnerId.toString()).emit('new_letter', letter)
+    // TODO: emit socket.io event here to notify partner in real-time,
+    // e.g. io.to(currentUser.partnerId).emit('new_letter', letter)
 
     res.status(201).json(letter);
   } catch (err) {
@@ -103,7 +103,7 @@ router.post('/', protect, async (req, res) => {
 });
 
 // DELETE /api/letters/:id - only sender can delete their own letter
-router.delete('/:id', protect, async (req, res) => {
+router.delete('/:id', authMiddleware, async (req, res) => {
   try {
     const letter = await Letter.findById(req.params.id);
 
@@ -111,7 +111,7 @@ router.delete('/:id', protect, async (req, res) => {
       return res.status(404).json({ message: 'Letter not found' });
     }
 
-    if (letter.sender.toString() !== req.user._id.toString()) {
+    if (letter.sender.toString() !== req.user.id) {
       return res.status(403).json({ message: 'Only the sender can delete this letter' });
     }
 
