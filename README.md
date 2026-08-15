@@ -11,17 +11,33 @@
 
 ---
 
+## 🎬 Demo Video
+
+https://github.com/DEVKUMAR9012/loveforlove/raw/main/ss/demo.mp4
+
+---
+
 ## 📸 App Showcase
 
-| 🗺️ Snapchat Black Dark Live Map | 📸 Shared Photo Gallery |
+| 🏠 Home Dashboard | 🗺️ Live Location (Dark Map) |
 | :---: | :---: |
-| ![Live Location Dark Map](ss/Screenshot%202026-07-23%20234455.png) | ![Memories Gallery](ss/Screenshot%202026-07-23%20233209.png) |
-| *Real-time location, battery status, speed & neon path* | *Private photo journal and memory vault* |
+| ![Home Dashboard](ss/cropped/Screenshot%202026-07-24%20012853.png) | ![Live Location Dark Map](ss/cropped/Screenshot%202026-07-23%20234455.png) |
+| *Personalized home with partner connection & quick access* | *Real-time location, battery status, speed & neon path* |
 
-| 🎭 Mood Tracker & Daily Check-ins | 🎙️ Voice Notes & Audio Messages |
+| 📸 Shared Photo Gallery | 🎭 Mood Tracker & Daily Check-ins |
 | :---: | :---: |
-| ![Mood Tracker](ss/Screenshot%202026-07-23%20233230.png) | ![Voice Notes](ss/Screenshot%202026-07-23%20233241.png) |
-| *Track daily emotional check-ins & mood history* | *Record & replay heartwarming voice messages* |
+| ![Memories Gallery](ss/cropped/Screenshot%202026-07-23%20233209.png) | ![Mood Tracker](ss/cropped/Screenshot%202026-07-23%20233230.png) |
+| *Private photo journal and memory vault* | *Track daily emotional check-ins & mood history* |
+
+| 🎙️ Voice Notes & Audio Messages | 🗓️ Shared Calendar & Special Days |
+| :---: | :---: |
+| ![Voice Notes](ss/cropped/Screenshot%202026-07-23%20233241.png) | ![Shared Calendar](ss/cropped/Screenshot%202026-07-24%20013020.png) |
+| *Record & replay heartwarming voice messages* | *Important dates, countdowns & shared reminders* |
+
+| 🗺️ Live Map (Fullscreen) |
+| :---: |
+| ![Live Map Fullscreen](ss/cropped/Screenshot%202026-07-24%20013033.png) |
+| *Full dark map view with live partner tracking* |
 
 ---
 
