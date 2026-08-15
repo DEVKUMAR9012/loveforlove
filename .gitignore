@@ -46,3 +46,6 @@ LIVE_LOCATION_MOCKUP.html
 LIVE_LOCATION_QUICK_START.md
 LIVE_LOCATION_SETUP.md
 workflows/
+
+# Large screen recordings (too big for GitHub — only commit compressed demo.mp4)
+ss/Screen Recording*.mp4
