@@ -241,10 +241,12 @@ router.post(
 
         await seedWelcomeNotification(user._id);
       } else {
-        // Returning user — update name and firebaseUid always.
+        // Returning user — only update name from social provider if the user
+        // has NOT set a custom name (i.e. their DB name is blank).
+        // This prevents Settings name changes from being overwritten on re-login.
         // Only update avatarUrl from social provider if user has NOT set a custom avatar.
         const updates = {};
-        if (name && name.trim())  updates.name = name.trim();
+        if (name && name.trim() && !user.name) updates.name = name.trim();
         if (picture && !user.hasCustomAvatar) updates.avatarUrl = picture;
         if (firebaseUid && !user.firebaseUid) updates.firebaseUid = firebaseUid;
         if (Object.keys(updates).length > 0) {
