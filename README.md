@@ -14,7 +14,7 @@
 ## 🎬 Demo Video
 
 <div align="center">
-  <video src="https://github.com/DEVKUMAR9012/loveforlove/raw/main/ss/demo.mp4" width="100%" controls="controls"> </video>
+  <img src="ss/demo.gif" alt="loveforlove Live Demo" width="100%" />
 </div>
 
 ---
