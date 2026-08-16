@@ -41,6 +41,11 @@
 | ![Live Map Fullscreen](ss/cropped/Screenshot%202026-07-24%20013033.png) |
 | *Full dark map view with live partner tracking* |
 
+| 💌 Romantic Stationery Letter (Theme Canvas) | 💌 Letters Inbox |
+| :---: | :---: |
+| ![Letter Theme Canvas](ss/cropped/Screenshot%202026-08-16%20134541.png) | ![Letters Inbox](ss/cropped/Screenshot%202026-08-16%20134555.png) |
+| *Write heartfelt letters on beautiful stationery themes* | *Send & receive handwritten letters with unread indicators* |
+
 ---
 
 ## ✨ Key Features
