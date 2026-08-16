@@ -13,7 +13,9 @@
 
 ## 🎬 Demo Video
 
-https://github.com/DEVKUMAR9012/loveforlove/raw/main/ss/demo.mp4
+<div align="center">
+  <video src="https://github.com/DEVKUMAR9012/loveforlove/raw/main/ss/demo.mp4" width="100%" controls="controls"> </video>
+</div>
 
 ---
 
@@ -44,6 +46,7 @@ https://github.com/DEVKUMAR9012/loveforlove/raw/main/ss/demo.mp4
 ## ✨ Key Features
 
 - 🗺️ **Snapchat Dark Mode Live Location**: Real-time Leaflet map powered by CartoDB Dark Matter dark tiles, vibrant neon cyan & pink markers, live movement trails, battery indicators, and distance tracking.
+- 💌 **Romantic Stationery Letters**: Choose from 6 aesthetic stationery paper themes (Kraft & Heart, Wax Seal, Midnight Floral, Ruled Red, Hibiscus & Bow, Kittens & Stars) with authentic handwritten typography, live canvas editor, unread indicator dot, and direct delivery.
 - 🔑 **Partner Code Direct Sign-In**: Login instantly using an 8-character partner invite code without providing an email address. Add or update email anytime in Settings.
 - 💌 **Shareable Invite Cards**: Generate romantic shareable partner invite cards with 1-tap WhatsApp sharing, native Web Share API integration, and direct join links.
 - 📸 **Memories & Disappearing Snaps**: Create permanent photo memory journals or send temporary disappearing snaps.
